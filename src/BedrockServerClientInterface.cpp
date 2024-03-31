@@ -1,78 +1,71 @@
 #include "BedrockServerClientInterface.h"
 
-#include "particle/ParticleSender.h"
+#include "bsci/GeometryGroup.h"
 
+#include <ll/api/Config.h>
 #include <ll/api/plugin/NativePlugin.h>
-#include <ll/api/schedule/Scheduler.h>
-#include <memory>
+#include <ll/api/plugin/RegisterHelper.h>
+#include <ll/api/utils/ErrorUtils.h>
 
 namespace bsci {
 
-struct BedrockServerClientInterface::Impl {
-    std::optional<ll::schedule::ServerTimeScheduler> scheduler;
-};
+struct BedrockServerClientInterface::Impl {};
 
-BedrockServerClientInterface::BedrockServerClientInterface() : impl(std::make_unique<Impl>()) {
-    impl->scheduler.emplace();
-}
+BedrockServerClientInterface::BedrockServerClientInterface(ll::plugin::NativePlugin& self)
+: self(self),
+  impl(std::make_unique<Impl>()) {}
 
 BedrockServerClientInterface::~BedrockServerClientInterface() = default;
 
-BedrockServerClientInterface& BedrockServerClientInterface::getInstance() {
-    static BedrockServerClientInterface instance;
-    return instance;
+
+static std::unique_ptr<BedrockServerClientInterface> instance;
+
+BedrockServerClientInterface& BedrockServerClientInterface::getInstance() { return *instance; }
+
+ll::plugin::NativePlugin& BedrockServerClientInterface::getSelf() const { return self; }
+
+std::filesystem::path BedrockServerClientInterface::getConfigPath() const {
+    return getSelf().getConfigDir() / u8"config.json";
 }
 
-ll::plugin::NativePlugin& BedrockServerClientInterface::getSelf() const { return *self; }
+bool BedrockServerClientInterface::loadConfig() {
+    bool res{};
+    mConfig.emplace();
+    try {
+        res = ll::config::loadConfig(*mConfig, getConfigPath());
+    } catch (...) {
+        ll::error_utils::printCurrentException(getLogger());
+        res = false;
+    }
+    if (!res) {
+        res = ll::config::saveConfig(*mConfig, getConfigPath());
+    }
+    return res;
+}
 
-bool BedrockServerClientInterface::load(ll::plugin::NativePlugin& plugin) {
-    self = std::addressof(plugin);
+bool BedrockServerClientInterface::saveConfig() {
+    return ll::config::saveConfig(*mConfig, getConfigPath());
+}
+
+bool BedrockServerClientInterface::load() {
+    if (!loadConfig()) {
+        return false;
+    }
     return true;
 }
 
 bool BedrockServerClientInterface::enable() {
-    using namespace ll::chrono_literals;
-
-    impl->scheduler->add<ll::schedule::RepeatTask>(1s, [] {
-        static ParticleSender p(std::chrono::duration_cast<std::chrono::duration<float>>(1s).count()
-        );
-        p.line(0, BlockPos{0, 70, 0}.center(), BlockPos{10, 73, 6}.center(), mce::Color::BLUE);
-        p.box(
-            0,
-            BoundingBox{
-                {0,  70, 0},
-                {10, 73, 6}
-        },
-            mce::Color::PINK
-        );
-    });
-
+    if (!mConfig) {
+        loadConfig();
+    }
     return true;
 }
 
 bool BedrockServerClientInterface::disable() {
-    impl->scheduler.reset();
+    saveConfig();
     return true;
 }
 
-bool BedrockServerClientInterface::unload() {
-    self = nullptr;
-    return true;
-}
-
-extern "C" {
-_declspec(dllexport) bool ll_plugin_load(ll::plugin::NativePlugin& self) {
-    return BedrockServerClientInterface::getInstance().load(self);
-}
-_declspec(dllexport) bool ll_plugin_enable(ll::plugin::NativePlugin&) {
-    return BedrockServerClientInterface::getInstance().enable();
-}
-_declspec(dllexport) bool ll_plugin_disable(ll::plugin::NativePlugin&) {
-    return BedrockServerClientInterface::getInstance().disable();
-}
-_declspec(dllexport) bool ll_plugin_unload(ll::plugin::NativePlugin&) {
-    return BedrockServerClientInterface::getInstance().unload();
-}
-}
-
+bool BedrockServerClientInterface::unload() { return true; }
 } // namespace bsci
+LL_REGISTER_PLUGIN(bsci::BedrockServerClientInterface, bsci::instance);
