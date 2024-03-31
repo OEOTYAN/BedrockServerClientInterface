@@ -1,35 +1,55 @@
-# LeviLamina Plugin Template
+# BedrockServerClientInterface
 
-A LeviLamina plugin template
+## Use
 
-This plugin is a template for developing LeviLamina plugins.
+Add in xmake.lua
 
-## Install
+```lua
+add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
+add_requires("bsci")
 
-Generate a new repository from this template.
+```
 
-## Usage
+example
 
-Before using this plugin template, make sure that you have installed XMake and a Minecraft Bedrock Server with LeviLamina.
+```cpp
+#include <bsci/GeometryGroup.h>
 
-1. Clone the new repository into a local folder.
+int main() {
 
-1. Change the plugin name and the expected LeviLamina version in `xmake.lua`.
+    static auto geo = bsci::GeometryGroup::createDefault();
 
-1. Add your code.
+    geo->line(0, BlockPos{0, 70, 0}.center(), BlockPos{10, 73, 6}.center(), mce::Color::BLUE);
 
-1. Run `xmake repo -u` in the root of the repository.
+    geo->box(
+        0,
+        BoundingBox{
+            {0,  70, 0},
+            {10, 73, 6}
+    },
+        mce::Color::PINK
+    );
 
-1. Run `xmake` to build the plugin.
+    geo->circle(0, BlockPos{0, 73, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
 
-Now the build is complete at `bin/`.
+    auto s = geo->sphere(0, BlockPos{0, 180, 0}.center(), 100, mce::Color::CYAN);
+
+    std::thread([&, s] {
+        std::this_thread::sleep_for(std::chrono::seconds{30});
+        geo->remove(s);
+    }).join();
+
+    return 0;
+}
+
+```
 
 ## Contributing
 
-Ask questions by [creating an issue](https://github.com/LiteLDev/levilamina-plugin-template/issues/new/choose).
+Ask questions by creating an issue.
 
 PRs accepted.
 
 ## License
 
-CC0-1.0 © LiteLDev
+AGPL v3.0
