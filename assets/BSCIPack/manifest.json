@@ -1,0 +1,30 @@
+{
+    "format_version": 2,
+    "header": {
+        "description": "made by OEOTYAN",
+        "name": "BSCIPack V1.0",
+        "uuid": "c162dced-d9c3-43ca-a18b-3898bf882f9b",
+        "version": [
+            1,
+            0,
+            0
+        ],
+        "min_engine_version": [
+            1,
+            13,
+            0
+        ]
+    },
+    "modules": [
+        {
+            "description": "made by OEOTYAN",
+            "type": "resources",
+            "uuid": "3c142854-1973-45c9-a553-edbe6cdcd5b2",
+            "version": [
+                1,
+                0,
+                0
+            ]
+        }
+    ]
+}

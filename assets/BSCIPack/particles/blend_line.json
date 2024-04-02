@@ -1,0 +1,53 @@
+{
+    "format_version": "1.10.0",
+    "particle_effect": {
+        "description": {
+            "identifier": "bsci:blend_line",
+            "basic_render_parameters": {
+                "material": "particles_blend",
+                "texture": "particles/base"
+            }
+        },
+        "components": {
+            "minecraft:emitter_local_space": {
+                "position": true
+            },
+            "minecraft:emitter_shape_point": {},
+            "minecraft:emitter_lifetime_once": {
+                "active_time": 0
+            },
+            "minecraft:emitter_lifetime_looping": {
+                "active_time": 0
+            },
+            "minecraft:emitter_rate_instant": {
+                "num_particles": 1
+            },
+            "minecraft:particle_lifetime_expression": {
+                "max_lifetime": "variable.bsci_particle_lifetime"
+            },
+            "minecraft:particle_appearance_billboard": {
+                "facing_camera_mode": "lookat_direction",
+                "direction": {
+                    "mode": "custom",
+                    "custom_direction": [
+                        "variable.bsci_particle_direction.x",
+                        "variable.bsci_particle_direction.y",
+                        "variable.bsci_particle_direction.z"
+                    ]
+                },
+                "size": [
+                    "variable.bsci_particle_size.x",
+                    "variable.bsci_particle_size.y"
+                ]
+            },
+            "minecraft:particle_appearance_tinting": {
+                "color": [
+                    "variable.bsci_particle_tint.r",
+                    "variable.bsci_particle_tint.g",
+                    "variable.bsci_particle_tint.b",
+                    "variable.bsci_particle_tint.a"
+                ]
+            }
+        }
+    }
+}
