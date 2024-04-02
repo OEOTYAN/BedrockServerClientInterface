@@ -5,7 +5,9 @@ add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 add_requires("levilamina")
 add_requires("parallel-hashmap")
 
-set_runtimes("MD")
+if not has_config("vs_runtime") then
+    set_runtimes("MD")
+end
 
 target("BedrockServerClientInterface")
     add_rules("mode.release")
