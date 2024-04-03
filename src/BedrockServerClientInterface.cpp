@@ -7,6 +7,8 @@
 #include <ll/api/plugin/RegisterHelper.h>
 #include <ll/api/utils/ErrorUtils.h>
 
+// #define TEST
+
 namespace bsci {
 
 struct BedrockServerClientInterface::Impl {};
@@ -58,6 +60,24 @@ bool BedrockServerClientInterface::enable() {
     if (!mConfig) {
         loadConfig();
     }
+#ifdef TEST
+    std::thread([] {
+        auto                 geo = bsci::GeometryGroup::createDefault();
+        GeometryGroup::GeoId eee{};
+        auto gid = geo->circle(0, BlockPos{0, 90, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
+        for (size_t i = 0;; i++) {
+            using namespace std::chrono_literals;
+
+            geo->shift(gid, {0, 0.01, 1});
+
+            geo->remove(eee);
+
+            eee = geo->sphere(0, BlockPos{0, 100, i}, 5, mce::Color{0, 33, 133, 50} * 1.6);
+
+            std::this_thread::sleep_for(1s);
+        }
+    }).detach();
+#endif
     return true;
 }
 

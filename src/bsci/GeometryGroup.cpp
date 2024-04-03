@@ -8,7 +8,7 @@ namespace bsci {
 
 GeometryGroup::GeoId GeometryGroup::getNextGeoId() const {
     static std::atomic_uint64_t id{};
-    return {id++};
+    return {++id};
 }
 GeometryGroup::GeoId GeometryGroup::line(
     DimensionType        dim,

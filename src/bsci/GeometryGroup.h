@@ -1,7 +1,7 @@
 #pragma once
 
-#include "bsci/utils/Math.h"
 #include "bsci/Marcos.h"
+#include "bsci/utils/Math.h"
 #include <mc/deps/core/mce/Color.h>
 #include <mc/world/AutomaticID.h>
 
@@ -9,8 +9,9 @@ namespace bsci {
 class GeometryGroup {
 public:
     struct GeoId {
-        uint64         value;
-        constexpr bool operator==(GeoId const& other) const { return other.value == value; }
+        uint64             value;
+        constexpr bool     operator==(GeoId const& other) const { return other.value == value; }
+        explicit constexpr operator bool() const { return value == 0; }
     };
 
 protected:
@@ -39,6 +40,8 @@ public:
     virtual bool remove(GeoId) = 0;
 
     virtual GeoId merge(std::span<GeoId>) = 0;
+
+    virtual bool shift(GeoId, Vec3 const&) = 0;
 
     virtual GeoId line(
         DimensionType        dim,

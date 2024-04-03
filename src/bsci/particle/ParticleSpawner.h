@@ -5,7 +5,6 @@
 #include <mc/world/level/Tick.h>
 #include <memory>
 
-
 namespace bsci {
 class ParticleSpawner : public GeometryGroup {
     struct Impl;
@@ -21,7 +20,7 @@ class ParticleSpawner : public GeometryGroup {
     void tick(Tick const& tick);
 
 public:
-    BSCI_API ParticleSpawner(std::optional<ActorUniqueID> actorId = std::nullopt);
+    BSCI_API ParticleSpawner();
 
     ~ParticleSpawner() override;
 
@@ -43,5 +42,7 @@ public:
     bool remove(GeoId) override;
 
     GeoId merge(std::span<GeoId>) override;
+
+    bool shift(GeoId, Vec3 const&) override;
 };
 } // namespace bsci

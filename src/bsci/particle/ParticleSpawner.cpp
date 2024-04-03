@@ -3,6 +3,9 @@
 
 #include <ll/api/memory/Hook.h>
 #include <ll/api/service/Bedrock.h>
+#include <ll/api/thread/TickSyncTaskPool.h>
+#include <mc/deps/core/common/bedrock/AssignedThread.h>
+#include <mc/deps/core/common/bedrock/Threading.h>
 
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
 #include <mc/server/ServerLevel.h>
@@ -55,11 +58,22 @@ static void addDirection(MolangVariableMap& var, Vec3 const& dir) {
 }
 struct ParticleSpawner::Impl {
     struct Hook;
-    std::optional<ActorUniqueID> actor;
-    size_t                       id;
-
+    size_t                                                                 id{};
     ph_flat_hash_map<GeoId, std::unique_ptr<SpawnParticleEffectPacket>, 6> geoPackets;
     ph_flat_hash_map<GeoId, std::vector<GeoId>>                            geoGroup;
+    ll::thread::TickSyncTaskPool                                           pool;
+
+    void sendParticleImmediately(SpawnParticleEffectPacket& pkt) {
+        if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
+            return;
+        }
+        if (Bedrock::Threading::getMainThread().isOnThread()
+            || Bedrock::Threading::getServerThread().isOnThread()) [[unlikely]] {
+            pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
+        } else {
+            pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
+        }
+    }
 };
 
 static std::recursive_mutex          listMutex;
@@ -89,14 +103,13 @@ void ParticleSpawner::tick(Tick const& tick) {
     for (size_t i = 0; i < tablePerTick; i++) {
         impl->geoPackets.with_submap(begin + i, [&](auto& map) {
             for (auto& [id, pkt] : map) {
-                pkt->sendTo(pkt->mPos, pkt->mVanillaDimensionId);
+                pkt->sendTo(pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
             }
         });
     }
 }
 
-ParticleSpawner::ParticleSpawner(std::optional<ActorUniqueID> actorId)
-: impl(std::make_unique<Impl>(actorId)) {
+ParticleSpawner::ParticleSpawner() : impl(std::make_unique<Impl>()) {
     static ll::memory::HookRegistrar<ParticleSpawner::Impl::Hook> reg;
     std::lock_guard                                               l{listMutex};
     hasInstance = true;
@@ -120,10 +133,7 @@ GeometryGroup::GeoId ParticleSpawner::particle(
     addTime(var);
     auto packet =
         std::make_unique<SpawnParticleEffectPacket>(pos, name, (uchar)dim, std::move(var));
-    if (impl->actor) {
-        packet->mActorId = *impl->actor;
-    }
-    packet->sendTo(pos, dim);
+    impl->sendParticleImmediately(*packet);
     auto id = GeometryGroup::getNextGeoId();
     impl->geoPackets.try_emplace(id, std::move(packet));
     return id;
@@ -172,6 +182,9 @@ GeometryGroup::GeoId ParticleSpawner::point(
 }
 
 bool ParticleSpawner::remove(GeoId id) {
+    if (id.value == 0) {
+        return false;
+    }
     if (!impl->geoGroup.erase_if(id, [this](auto&& iter) {
             for (auto& subId : iter.second) {
                 impl->geoPackets.erase(subId);
@@ -184,11 +197,14 @@ bool ParticleSpawner::remove(GeoId id) {
 }
 
 GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
+    if (ids.empty()) {
+        return {0};
+    }
     auto               id = GeometryGroup::getNextGeoId();
     std::vector<GeoId> res;
     res.reserve(ids.size());
     for (auto const& sid : ids) {
-        if (!impl->geoGroup.erase_if(id, [this, &res](auto&& iter) {
+        if (!impl->geoGroup.erase_if(sid, [this, &res](auto&& iter) {
                 res.append_range(std::move(iter.second));
                 return true;
             })) {
@@ -197,6 +213,23 @@ GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
     }
     impl->geoGroup.try_emplace(id, std::move(res));
     return id;
+}
+
+bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
+    if (!impl->geoGroup.modify_if(id, [this, &v](auto&& i) {
+            for (auto& subId : i.second) {
+                impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {
+                    iter.second->mPos += v;
+                    impl->sendParticleImmediately(*iter.second);
+                });
+            }
+        })) {
+        return impl->geoPackets.modify_if(id, [this, &v](auto&& iter) {
+            iter.second->mPos += v;
+            impl->sendParticleImmediately(*iter.second);
+        });
+    }
+    return true;
 }
 
 } // namespace bsci
