@@ -67,12 +67,12 @@ struct ParticleSpawner::Impl {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
             return;
         }
-        if (Bedrock::Threading::getMainThread().isOnThread()
-            || Bedrock::Threading::getServerThread().isOnThread()) [[unlikely]] {
+        // if (Bedrock::Threading::getMainThread().isOnThread()
+        //     || Bedrock::Threading::getServerThread().isOnThread()) [[unlikely]] {
             pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
-        } else {
-            pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
-        }
+        // } else {
+        //     pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
+        // }
     }
 };
 

@@ -10,7 +10,7 @@ struct Config {
         double minSphereSpacing   = 0.6;
         double extraTime          = 0.05;
         size_t tablePerTick       = 2;
-        double defaultThickness   = 0.09;
+        double defaultThickness   = 0.1;
         double defaultPointRadius = 0.3;
         bool   delayUndate        = false;
     } particle{};
