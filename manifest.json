@@ -2,10 +2,5 @@
     "name": "${pluginName}",
     "entry": "${pluginFile}",
     "version": "${pluginVersion}",
-    "type": "native",
-    "dependencies": [
-        {
-            "name": "LeviOptimize"
-        }
-    ]
+    "type": "native"
 }

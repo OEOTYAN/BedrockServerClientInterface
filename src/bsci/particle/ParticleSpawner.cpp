@@ -13,6 +13,7 @@
 #include <mc/util/molang/MolangVariableSettings.h>
 #include <mc/world/level/Level.h>
 #include <mc/world/level/dimension/Dimension.h>
+#include <mc/server/ServerInstance.h>
 
 #include <parallel_hashmap/phmap.h>
 
@@ -67,12 +68,12 @@ struct ParticleSpawner::Impl {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
             return;
         }
-        // if (Bedrock::Threading::getMainThread().isOnThread()
-        //     || Bedrock::Threading::getServerThread().isOnThread()) [[unlikely]] {
+        if (Bedrock::Threading::getMainThread().isOnThread()
+            || Bedrock::Threading::getServerThread().isOnThread()) {
             pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
-        // } else {
-        //     pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
-        // }
+        } else {
+            pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
+        }
     }
 };
 
@@ -83,14 +84,15 @@ static std::atomic_bool              hasInstance{false};
 LL_TYPE_INSTANCE_HOOK(
     ParticleSpawner::Impl::Hook,
     HookPriority::Normal,
-    ServerLevel,
-    &ServerLevel::_subTick,
+    ServerInstance,
+    &ServerInstance::_update,
     void
 ) {
+    static size_t tick;
     if (hasInstance) {
         std::lock_guard l{listMutex};
         for (auto s : list) {
-            s->tick(getCurrentTick());
+            s->tick(tick++);
         }
     }
     origin();
