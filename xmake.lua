@@ -1,4 +1,4 @@
-
+add_rules("mode.release")
 
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
@@ -10,7 +10,6 @@ if not has_config("vs_runtime") then
 end
 
 target("BedrockServerClientInterface")
-    add_rules("mode.release")
     add_cxflags(
         "/EHa",
         "/utf-8",

@@ -2,18 +2,19 @@
 #include "BedrockServerClientInterface.h"
 
 #include <ll/api/memory/Hook.h>
+#include <ll/api/memory/Memory.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/TickSyncTaskPool.h>
 #include <mc/deps/core/common/bedrock/AssignedThread.h>
 #include <mc/deps/core/common/bedrock/Threading.h>
 
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
-#include <mc/server/ServerLevel.h>
 #include <mc/util/molang/MolangScriptArg.h>
 #include <mc/util/molang/MolangVariableSettings.h>
-#include <mc/world/level/Level.h>
 #include <mc/world/level/dimension/Dimension.h>
-#include <mc/server/ServerInstance.h>
+
+#include <mc/util/Timer.h>
+#include <mc/world/Minecraft.h>
 
 #include <parallel_hashmap/phmap.h>
 
@@ -80,22 +81,25 @@ struct ParticleSpawner::Impl {
 static std::recursive_mutex          listMutex;
 static std::vector<ParticleSpawner*> list;
 static std::atomic_bool              hasInstance{false};
+static size_t                        listtick;
 
 LL_TYPE_INSTANCE_HOOK(
     ParticleSpawner::Impl::Hook,
     HookPriority::Normal,
-    ServerInstance,
-    &ServerInstance::_update,
-    void
+    Minecraft,
+    &Minecraft::update,
+    bool
 ) {
-    static size_t tick;
-    if (hasInstance) {
-        std::lock_guard l{listMutex};
-        for (auto s : list) {
-            s->tick(tick++);
+    if (ll::memory::dAccess<Timer*>(this, 28 * 8)->getTicks()) {
+        if (hasInstance) {
+            std::lock_guard l{listMutex};
+            listtick++;
+            for (auto s : list) {
+                s->tick(listtick);
+            }
         }
     }
-    origin();
+    return origin();
 }
 
 void ParticleSpawner::tick(Tick const& tick) {
