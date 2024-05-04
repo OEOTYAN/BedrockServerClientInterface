@@ -70,17 +70,44 @@ GeometryGroup::GeoId GeometryGroup::circle(
 
     std::vector<GeoId> ids;
     ids.reserve(points);
-    double thetaLast{0};
+    Vec3 lastPos = t * radius;
     for (size_t i{1}; i <= points; i++) {
         double theta = (double)i * delta;
-        ids.emplace_back(line(
-            dim,
-            center + t * (radius * std::cos(thetaLast)) + b * radius * std::sin(thetaLast),
-            center + t * (radius * std::cos(theta)) + b * radius * std::sin(theta),
-            color,
-            thickness
-        ));
-        thetaLast = theta;
+        Vec3   pos   = t * (radius * std::cos(theta)) + b * radius * std::sin(theta);
+        ids.emplace_back(line(dim, center + lastPos, center + pos, color, thickness));
+        lastPos = pos;
+    }
+    return merge(ids);
+}
+GeometryGroup::GeoId GeometryGroup::cylinder(
+    DimensionType        dim,
+    Vec3 const&          topCenter,
+    Vec3 const&          bottomCenter,
+    float                radius,
+    mce::Color const&    color,
+    std::optional<float> thickness
+) {
+    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+
+    size_t const points = std::clamp(
+        (size_t)std::ceil(radius * std::numbers::pi * 2 / config.minCircleSpacing),
+        7ui64,
+        config.maxCircleSegments
+
+    );
+    auto const [t, b] = branchlessONB((topCenter - bottomCenter).normalize());
+    auto const delta  = std::numbers::pi * 2 / (double)points;
+
+    std::vector<GeoId> ids;
+    ids.reserve(points);
+    Vec3 lastPos = t * radius;
+    for (size_t i{1}; i <= points; i++) {
+        double theta = (double)i * delta;
+        Vec3   pos   = t * (radius * std::cos(theta)) + b * radius * std::sin(theta);
+        ids.emplace_back(line(dim, topCenter + lastPos, topCenter + pos, color, thickness));
+        ids.emplace_back(line(dim, topCenter + pos, bottomCenter + pos, color, thickness));
+        ids.emplace_back(line(dim, bottomCenter + lastPos, bottomCenter + pos, color, thickness));
+        lastPos = pos;
     }
     return merge(ids);
 }

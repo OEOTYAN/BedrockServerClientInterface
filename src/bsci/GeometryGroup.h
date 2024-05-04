@@ -15,12 +15,12 @@ public:
     };
 
 protected:
-    GeoId getNextGeoId() const;
+    BSCI_API GeoId getNextGeoId() const;
 
 public:
     BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
 
-    virtual ~GeometryGroup() = default;
+    BSCI_API virtual ~GeometryGroup() = default;
 
     virtual GeoId point(
         DimensionType        dim,
@@ -43,20 +43,20 @@ public:
 
     virtual bool shift(GeoId, Vec3 const&) = 0;
 
-    virtual GeoId line(
+    BSCI_API virtual GeoId line(
         DimensionType        dim,
         std::span<Vec3>      dots,
         mce::Color const&    color     = mce::Color::WHITE,
         std::optional<float> thickness = {}
     );
 
-    virtual GeoId
+    BSCI_API virtual GeoId
     box(DimensionType        dim,
         AABB const&          box,
         mce::Color const&    color     = mce::Color::WHITE,
         std::optional<float> thickness = {});
 
-    virtual GeoId circle(
+    BSCI_API virtual GeoId circle(
         DimensionType        dim,
         Vec3 const&          center,
         Vec3 const&          normal,
@@ -65,7 +65,16 @@ public:
         std::optional<float> thickness = {}
     );
 
-    virtual GeoId sphere(
+    BSCI_API virtual GeoId cylinder(
+        DimensionType        dim,
+        Vec3 const&          topCenter,
+        Vec3 const&          bottomCenter,
+        float                radius,
+        mce::Color const&    color     = mce::Color::WHITE,
+        std::optional<float> thickness = {}
+    );
+
+    BSCI_API virtual GeoId sphere(
         DimensionType        dim,
         Vec3 const&          center,
         float                radius,

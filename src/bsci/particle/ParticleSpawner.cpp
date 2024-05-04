@@ -4,6 +4,7 @@
 #include <ll/api/memory/Hook.h>
 #include <ll/api/memory/Memory.h>
 #include <ll/api/service/Bedrock.h>
+#include <ll/api/service/ServerInfo.h>
 #include <ll/api/thread/TickSyncTaskPool.h>
 #include <mc/deps/core/common/bedrock/AssignedThread.h>
 #include <mc/deps/core/common/bedrock/Threading.h>
@@ -90,7 +91,8 @@ LL_TYPE_INSTANCE_HOOK(
     &Minecraft::update,
     bool
 ) {
-    if (ll::memory::dAccess<Timer*>(this, 28 * 8)->getTicks()) {
+    if (ll::memory::dAccess<Timer*>(this, 28 * 8)->getTicks()
+        && ll::getServerStatus() == ll::ServerStatus::Running) {
         if (hasInstance) {
             std::lock_guard l{listMutex};
             listtick++;
