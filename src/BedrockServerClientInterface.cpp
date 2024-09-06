@@ -3,8 +3,8 @@
 #include "bsci/GeometryGroup.h"
 
 #include <ll/api/Config.h>
-#include <ll/api/plugin/NativePlugin.h>
-#include <ll/api/plugin/RegisterHelper.h>
+#include <ll/api/mod/NativeMod.h>
+#include <ll/api/mod/RegisterHelper.h>
 #include <ll/api/utils/ErrorUtils.h>
 
 // #define TEST
@@ -13,7 +13,7 @@ namespace bsci {
 
 struct BedrockServerClientInterface::Impl {};
 
-BedrockServerClientInterface::BedrockServerClientInterface(ll::plugin::NativePlugin& self)
+BedrockServerClientInterface::BedrockServerClientInterface(ll::mod::NativeMod& self)
 : self(self),
   impl(std::make_unique<Impl>()) {}
 
@@ -24,7 +24,7 @@ static std::unique_ptr<BedrockServerClientInterface> instance;
 
 BedrockServerClientInterface& BedrockServerClientInterface::getInstance() { return *instance; }
 
-ll::plugin::NativePlugin& BedrockServerClientInterface::getSelf() const { return self; }
+ll::mod::NativeMod& BedrockServerClientInterface::getSelf() const { return self; }
 
 std::filesystem::path BedrockServerClientInterface::getConfigPath() const {
     return getSelf().getConfigDir() / u8"config.json";
@@ -88,4 +88,4 @@ bool BedrockServerClientInterface::disable() {
 
 bool BedrockServerClientInterface::unload() { return true; }
 } // namespace bsci
-LL_REGISTER_PLUGIN(bsci::BedrockServerClientInterface, bsci::instance);
+LL_REGISTER_MOD(bsci::BedrockServerClientInterface, bsci::instance);

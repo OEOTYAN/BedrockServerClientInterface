@@ -74,7 +74,7 @@ struct ParticleSpawner::Impl {
             || Bedrock::Threading::getServerThread().isOnThread()) {
             pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
         } else {
-            pool.addTask([&] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
+            pool.addTask([pkt] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
         }
     }
 };
@@ -111,7 +111,8 @@ void ParticleSpawner::tick(Tick const& tick) {
     for (size_t i = 0; i < tablePerTick; i++) {
         impl->geoPackets.with_submap(begin + i, [&](auto& map) {
             for (auto& [id, pkt] : map) {
-                pkt->sendTo(pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
+                if (pkt)
+                    pkt->sendTo(pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
             }
         });
     }
@@ -154,6 +155,7 @@ GeometryGroup::GeoId ParticleSpawner::line(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
+    if (begin == end) return {};
     MolangVariableMap var;
     addSize(
         var,
@@ -228,13 +230,13 @@ bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
             for (auto& subId : i.second) {
                 impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {
                     iter.second->mPos += v;
-                    impl->sendParticleImmediately(*iter.second);
+                    if (iter.second) impl->sendParticleImmediately(*iter.second);
                 });
             }
         })) {
         return impl->geoPackets.modify_if(id, [this, &v](auto&& iter) {
             iter.second->mPos += v;
-            impl->sendParticleImmediately(*iter.second);
+            if (iter.second) impl->sendParticleImmediately(*iter.second);
         });
     }
     return true;

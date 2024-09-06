@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ll/api/plugin/NativePlugin.h>
+#include <ll/api/mod/NativeMod.h>
 
 #include "Config.h"
 
@@ -10,17 +10,17 @@ class BedrockServerClientInterface {
     struct Impl;
     std::unique_ptr<Impl> impl;
 
-    ll::plugin::NativePlugin& self;
+    ll::mod::NativeMod& self;
 
     std::optional<Config> mConfig;
 
 public:
-    BedrockServerClientInterface(ll::plugin::NativePlugin&);
+    BedrockServerClientInterface(ll::mod::NativeMod&);
     ~BedrockServerClientInterface();
 
     static BedrockServerClientInterface& getInstance();
 
-    [[nodiscard]] ll::plugin::NativePlugin& getSelf() const;
+    [[nodiscard]] ll::mod::NativeMod& getSelf() const;
 
     [[nodiscard]] ll::Logger& getLogger() const { return getSelf().getLogger(); }
 

@@ -1,7 +1,7 @@
 #include "BedrockServerClientInterface.h"
 #include <ll/api/memory/Hook.h>
-#include <mc/resources/ResourcePackRepository.h>
 #include <mc/network/packet/ResourcePacksInfoPacket.h>
+#include <mc/resources/ResourcePackRepository.h>
 
 namespace bsci {
 
@@ -13,7 +13,7 @@ namespace bsci {
 //     void
 // ) {
 //     this->addCustomResourcePackPath(
-//         BedrockServerClientInterface::getInstance().getSelf().getPluginDir()
+//         BedrockServerClientInterface::getInstance().getSelf().getModDir()
 //             / u8"resource_packs/BSCIPack",
 //         PackType::Resources
 //     );

@@ -1,19 +1,19 @@
 {
     "format_version": 2,
     "tooth": "github.com/OEOTYAN/BedrockServerClientInterface",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "info": {
         "name": "BedrockServerClientInterface",
         "description": "wow",
         "author": "OEOTYAN",
         "tags": [
             "levilamina",
-            "plugin"
+            "mod"
         ]
     },
-    "asset_url": "https://github.com/OEOTYAN/BedrockServerClientInterface/releases/download/v0.1.3/BedrockServerClientInterface-windows-x64.zip",
+    "asset_url": "https://github.com/OEOTYAN/BedrockServerClientInterface/releases/download/v0.1.4/BedrockServerClientInterface-windows-x64.zip",
     "prerequisites": {
-        "github.com/LiteLDev/LeviLamina": ">=0.12.0"
+        "github.com/LiteLDev/LeviLamina": ">=0.13.4"
     },
     "files": {
         "place": [

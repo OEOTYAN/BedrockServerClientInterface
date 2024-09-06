@@ -111,6 +111,17 @@ GeometryGroup::GeoId GeometryGroup::cylinder(
     }
     return merge(ids);
 }
+
+static Vec3 cubeToSphere(Vec3 const& v) {
+    auto v2 = v * v;
+    return v
+         * sqrt(Vec3{
+             1 - (v2.y + v2.z) / 2 + (v2.y * v2.z) / 3,
+             1 - (v2.z + v2.x) / 2 + (v2.z * v2.x) / 3,
+             1 - (v2.x + v2.y) / 2 + (v2.x * v2.y) / 3
+         });
+}
+
 GeometryGroup::GeoId GeometryGroup::sphere(
     DimensionType        dim,
     Vec3 const&          center,
@@ -163,10 +174,10 @@ GeometryGroup::GeoId GeometryGroup::sphere(
     ids.reserve(lines.size() * cells);
 
     for (auto const& [begin, end] : lines) {
-        Vec3 lastPos = center + begin.normalize() * radius;
+        Vec3 lastPos = center + cubeToSphere(begin) * radius;
         for (size_t i = 1; i <= cells; i++) {
             Vec3 pos = lerp(begin, end, {(float)i / (float)cells});
-            pos      = center + pos.normalize() * radius;
+            pos      = center + cubeToSphere(pos) * radius;
             ids.emplace_back(line(dim, lastPos, pos, color, thickness));
             lastPos = pos;
         }
