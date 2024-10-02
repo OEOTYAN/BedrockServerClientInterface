@@ -22,7 +22,7 @@ public:
 
     [[nodiscard]] ll::mod::NativeMod& getSelf() const;
 
-    [[nodiscard]] ll::Logger& getLogger() const { return getSelf().getLogger(); }
+    [[nodiscard]] ll::io::Logger& getLogger() const { return getSelf().getLogger(); }
 
     [[nodiscard]] Config& getConfig() { return *mConfig; }
 

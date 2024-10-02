@@ -2,7 +2,7 @@ add_rules("mode.release")
 
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
-add_requires("levilamina")
+add_requires("levilamina develop")
 add_requires("parallel-hashmap")
 
 add_requires("levibuildscript")
@@ -12,7 +12,7 @@ if not has_config("vs_runtime") then
 end
 
 target("BedrockServerClientInterface")
-    -- add_rules("@levibuildscript/linkrule")
+    add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
     add_cxflags( "/EHa", "/utf-8", "/W4", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
     add_defines(
@@ -30,9 +30,6 @@ target("BedrockServerClientInterface")
     )
     add_packages(
         "levilamina", "parallel-hashmap"
-    )
-    add_shflags(
-        "/DELAYLOAD:bedrock_server.dll"
     )
     set_exceptions("none")
     set_kind("shared")

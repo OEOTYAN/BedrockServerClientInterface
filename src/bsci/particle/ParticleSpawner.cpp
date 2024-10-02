@@ -4,8 +4,8 @@
 #include <ll/api/memory/Hook.h>
 #include <ll/api/memory/Memory.h>
 #include <ll/api/service/Bedrock.h>
-#include <ll/api/service/ServerInfo.h>
-#include <ll/api/thread/TickSyncTaskPool.h>
+#include <ll/api/service/GamingStatus.h>
+#include <ll/api/thread/ServerThreadExecutor.h>
 #include <mc/deps/core/common/bedrock/AssignedThread.h>
 #include <mc/deps/core/common/bedrock/Threading.h>
 
@@ -64,7 +64,6 @@ struct ParticleSpawner::Impl {
     size_t                                                                 id{};
     ph_flat_hash_map<GeoId, std::unique_ptr<SpawnParticleEffectPacket>, 6> geoPackets;
     ph_flat_hash_map<GeoId, std::vector<GeoId>>                            geoGroup;
-    ll::thread::TickSyncTaskPool                                           pool;
 
     void sendParticleImmediately(SpawnParticleEffectPacket& pkt) {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
@@ -74,7 +73,9 @@ struct ParticleSpawner::Impl {
             || Bedrock::Threading::getServerThread().isOnThread()) {
             pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
         } else {
-            pool.addTask([pkt] { pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId); });
+            ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
+                pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
+            });
         }
     }
 };
@@ -92,7 +93,7 @@ LL_TYPE_INSTANCE_HOOK(
     bool
 ) {
     if (ll::memory::dAccess<Timer*>(this, 28 * 8)->getTicks()
-        && ll::getServerStatus() == ll::ServerStatus::Running) {
+        && ll::getGamingStatus() == ll::GamingStatus::Running) {
         if (hasInstance) {
             std::lock_guard l{listMutex};
             listtick++;
