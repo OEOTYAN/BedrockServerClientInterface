@@ -1,5 +1,7 @@
 #include "BedrockServerClientInterface.h"
+
 #include <ll/api/memory/Hook.h>
+
 #include <mc/network/packet/ResourcePacksInfoPacket.h>
 #include <mc/resources/ResourcePackRepository.h>
 

@@ -2,8 +2,9 @@
 
 #include "bsci/Marcos.h"
 #include "bsci/utils/Math.h"
-#include <mc/deps/core/mce/Color.h>
-#include <mc/world/AutomaticID.h>
+
+#include <mc/deps/core/math/Color.h>
+#include <mc/deps/core/utility/AutomaticID.h>
 
 namespace bsci {
 class GeometryGroup {

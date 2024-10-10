@@ -6,16 +6,15 @@
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/service/GamingStatus.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
-#include <mc/deps/core/common/bedrock/AssignedThread.h>
-#include <mc/deps/core/common/bedrock/Threading.h>
 
+#include <mc/deps/core/threading/Threading.h>
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
-#include <mc/util/molang/MolangScriptArg.h>
-#include <mc/util/molang/MolangVariableSettings.h>
-#include <mc/world/level/dimension/Dimension.h>
-
+#include <mc/platform/threading/AssignedThread.h>
+#include <mc/util/MolangScriptArg.h>
+#include <mc/util/MolangVariableSettings.h>
 #include <mc/util/Timer.h>
 #include <mc/world/Minecraft.h>
+#include <mc/world/level/dimension/Dimension.h>
 
 #include <parallel_hashmap/phmap.h>
 

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cmath>
-#include <mc/math/Vec2.h>
-#include <mc/math/Vec3.h>
+
+#include <mc/deps/core/math/Vec2.h>
+#include <mc/deps/core/math/Vec3.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/levelgen/structure/BoundingBox.h>
 #include <mc/world/phys/AABB.h>

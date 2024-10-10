@@ -1,9 +1,11 @@
 #pragma once
 
 #include "bsci/GeometryGroup.h"
-#include <mc/world/level/MolangVariableMap.h>
-#include <mc/world/level/Tick.h>
+
 #include <memory>
+
+#include <mc/util/MolangVariableMap.h>
+#include <mc/world/level/Tick.h>
 
 namespace bsci {
 class ParticleSpawner : public GeometryGroup {
