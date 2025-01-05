@@ -26,7 +26,7 @@ public:
     virtual GeoId point(
         DimensionType        dim,
         Vec3 const&          pos,
-        mce::Color const&    color  = mce::Color::WHITE,
+        mce::Color const&    color  = mce::Color::WHITE(),
         std::optional<float> radius = {}
     ) = 0;
 
@@ -34,7 +34,7 @@ public:
         DimensionType        dim,
         Vec3 const&          begin,
         Vec3 const&          end,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
     ) = 0;
 
@@ -47,14 +47,14 @@ public:
     BSCI_API virtual GeoId line(
         DimensionType        dim,
         std::span<Vec3>      dots,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
     );
 
     BSCI_API virtual GeoId
     box(DimensionType        dim,
         AABB const&          box,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {});
 
     BSCI_API virtual GeoId circle(
@@ -62,7 +62,7 @@ public:
         Vec3 const&          center,
         Vec3 const&          normal,
         float                radius,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
     );
 
@@ -71,7 +71,7 @@ public:
         Vec3 const&          topCenter,
         Vec3 const&          bottomCenter,
         float                radius,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
     );
 
@@ -79,7 +79,7 @@ public:
         DimensionType        dim,
         Vec3 const&          center,
         float                radius,
-        mce::Color const&    color     = mce::Color::WHITE,
+        mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
     );
 };

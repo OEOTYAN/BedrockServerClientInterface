@@ -2,8 +2,7 @@ add_rules("mode.release")
 
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
-add_requires("levilamina develop")
-add_requires("parallel-hashmap")
+add_requires("levilamina 4b3125524c36fb93da1e8b3c881d2faab98c9a5d")
 
 add_requires("levibuildscript")
 
@@ -28,9 +27,7 @@ target("BedrockServerClientInterface")
     add_includedirs(
         "src"
     )
-    add_packages(
-        "levilamina", "parallel-hashmap"
-    )
+    add_packages("levilamina")
     set_exceptions("none")
     set_kind("shared")
     set_languages("c++20")

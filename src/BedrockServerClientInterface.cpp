@@ -13,16 +13,16 @@ namespace bsci {
 
 struct BedrockServerClientInterface::Impl {};
 
-BedrockServerClientInterface::BedrockServerClientInterface(ll::mod::NativeMod& self)
-: self(self),
+BedrockServerClientInterface::BedrockServerClientInterface()
+: self(*ll::mod::NativeMod::current()),
   impl(std::make_unique<Impl>()) {}
 
 BedrockServerClientInterface::~BedrockServerClientInterface() = default;
 
-
-static std::unique_ptr<BedrockServerClientInterface> instance;
-
-BedrockServerClientInterface& BedrockServerClientInterface::getInstance() { return *instance; }
+BedrockServerClientInterface& BedrockServerClientInterface::getInstance() {
+    static BedrockServerClientInterface instance;
+    return instance;
+}
 
 ll::mod::NativeMod& BedrockServerClientInterface::getSelf() const { return self; }
 
@@ -87,5 +87,10 @@ bool BedrockServerClientInterface::disable() {
 }
 
 bool BedrockServerClientInterface::unload() { return true; }
+
 } // namespace bsci
-LL_REGISTER_MOD(bsci::BedrockServerClientInterface, bsci::instance);
+
+LL_REGISTER_MOD(
+    bsci::BedrockServerClientInterface,
+    bsci::BedrockServerClientInterface::getInstance()
+);

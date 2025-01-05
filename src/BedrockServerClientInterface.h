@@ -15,7 +15,7 @@ class BedrockServerClientInterface {
     std::optional<Config> mConfig;
 
 public:
-    BedrockServerClientInterface(ll::mod::NativeMod&);
+    BedrockServerClientInterface();
     ~BedrockServerClientInterface();
 
     static BedrockServerClientInterface& getInstance();

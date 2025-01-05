@@ -7,13 +7,20 @@
 #include <ll/api/service/GamingStatus.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
 
+#include <mc/common/ActorUniqueID.h>
+#include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/threading/Threading.h>
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
 #include <mc/platform/threading/AssignedThread.h>
+#include <mc/util/MolangMemberArray.h>
 #include <mc/util/MolangScriptArg.h>
+#include <mc/util/MolangStruct_RGBA.h>
+#include <mc/util/MolangStruct_XY.h>
+#include <mc/util/MolangStruct_XYZ.h>
 #include <mc/util/MolangVariableSettings.h>
 #include <mc/util/Timer.h>
 #include <mc/world/Minecraft.h>
+#include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
 
 #include <parallel_hashmap/phmap.h>
@@ -70,10 +77,10 @@ struct ParticleSpawner::Impl {
         }
         if (Bedrock::Threading::getMainThread().isOnThread()
             || Bedrock::Threading::getServerThread().isOnThread()) {
-            pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
+            pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
         } else {
             ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-                pkt.sendTo(pkt.mPos, pkt.mVanillaDimensionId);
+                pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
             });
         }
     }
@@ -97,7 +104,7 @@ LL_TYPE_INSTANCE_HOOK(
             std::lock_guard l{listMutex};
             listtick++;
             for (auto s : list) {
-                s->tick(listtick);
+                s->tick({listtick});
             }
         }
     }
@@ -107,12 +114,12 @@ LL_TYPE_INSTANCE_HOOK(
 void ParticleSpawner::tick(Tick const& tick) {
     auto const tablePerTick =
         BedrockServerClientInterface::getInstance().getConfig().particle.tablePerTick;
-    auto begin = (tick.t % (64 / tablePerTick)) * tablePerTick;
+    auto begin = (tick.tickID % (64 / tablePerTick)) * tablePerTick;
     for (size_t i = 0; i < tablePerTick; i++) {
         impl->geoPackets.with_submap(begin + i, [&](auto& map) {
             for (auto& [id, pkt] : map) {
                 if (pkt)
-                    pkt->sendTo(pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
+                    pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
             }
         });
     }
@@ -229,13 +236,13 @@ bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
     if (!impl->geoGroup.modify_if(id, [this, &v](auto&& i) {
             for (auto& subId : i.second) {
                 impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {
-                    iter.second->mPos += v;
+                    *iter.second->mPos += v;
                     if (iter.second) impl->sendParticleImmediately(*iter.second);
                 });
             }
         })) {
         return impl->geoPackets.modify_if(id, [this, &v](auto&& iter) {
-            iter.second->mPos += v;
+            *iter.second->mPos += v;
             if (iter.second) impl->sendParticleImmediately(*iter.second);
         });
     }
