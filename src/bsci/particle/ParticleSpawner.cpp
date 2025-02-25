@@ -7,13 +7,16 @@
 #include <ll/api/service/GamingStatus.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
 
-#include <mc/common/ActorUniqueID.h>
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/threading/Threading.h>
+#include <mc/legacy/ActorUniqueID.h>
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
 #include <mc/platform/threading/AssignedThread.h>
 #include <mc/util/MolangMemberArray.h>
+#include <mc/util/MolangMemberVariable.h>
 #include <mc/util/MolangScriptArg.h>
+#include <mc/util/MolangVariable.h>
+#include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangStruct_RGBA.h>
 #include <mc/util/MolangStruct_XY.h>
 #include <mc/util/MolangStruct_XYZ.h>
@@ -34,6 +37,15 @@ using ph_flat_hash_map = phmap::parallel_flat_hash_map<
     phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
     N,
     M>;
+
+MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
+    mMapFromVariableIndexToVariableArrayOffset = rhs.mMapFromVariableIndexToVariableArrayOffset;
+    mVariables                                 = {};
+    for (auto& ptr : *rhs.mVariables) {
+        mVariables->push_back(std::make_unique<MolangVariable>(*ptr));
+    }
+    mHasPublicVariables = rhs.mHasPublicVariables;
+}
 
 namespace bsci {
 std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
@@ -75,14 +87,9 @@ struct ParticleSpawner::Impl {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
             return;
         }
-        if (Bedrock::Threading::getMainThread().isOnThread()
-            || Bedrock::Threading::getServerThread().isOnThread()) {
+        ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
             pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
-        } else {
-            ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-                pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
-            });
-        }
+        });
     }
 };
 
@@ -98,8 +105,7 @@ LL_TYPE_INSTANCE_HOOK(
     &Minecraft::update,
     bool
 ) {
-    if (ll::memory::dAccess<Timer*>(this, 28 * 8)->getTicks()
-        && ll::getGamingStatus() == ll::GamingStatus::Running) {
+    if (mSimTimer.mTicks && ll::getGamingStatus() == ll::GamingStatus::Running) {
         if (hasInstance) {
             std::lock_guard l{listMutex};
             listtick++;
