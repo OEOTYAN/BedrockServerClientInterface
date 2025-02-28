@@ -5,7 +5,7 @@
 Add in xmake.lua
 
 ```lua
-add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
+add_repositories("OTOTYAN https://github.com/OEOTYAN/xmake-repo.git")
 add_requires("bsci")
 
 ```
