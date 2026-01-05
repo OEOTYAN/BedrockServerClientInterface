@@ -222,7 +222,7 @@ bool ParticleSpawner::remove(GeoId id) {
 
 GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
     if (ids.empty()) {
-        return {0};
+        return {};
     }
     auto               id = GeometryGroup::getNextGeoId();
     std::vector<GeoId> res;
@@ -240,6 +240,9 @@ GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
 }
 
 bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
+    if (id.value == 0) {
+        return false;
+    }
     if (!impl->geoGroup.modify_if(id, [this, &v](auto&& i) {
             for (auto& subId : i.second) {
                 impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {

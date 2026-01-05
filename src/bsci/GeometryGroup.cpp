@@ -1,10 +1,80 @@
 #include "GeometryGroup.h"
 #include "BedrockServerClientInterface.h"
 
+#include <ll/api/memory/Hook.h>
+#include <ll/api/memory/Memory.h>
+#include <ll/api/service/Bedrock.h>
+#include <ll/api/service/GamingStatus.h>
+#include <ll/api/thread/ServerThreadExecutor.h>
+
+#include <mc/util/Timer.h>
+#include <mc/world/Minecraft.h>
+
 #include <numbers>
 #include <ranges>
 
+#include <parallel_hashmap/phmap.h>
+
+template <class K, class V, size_t N = 4, class M = std::shared_mutex>
+using ph_flat_hash_map = phmap::parallel_flat_hash_map<
+    K,
+    V,
+    phmap::priv::hash_default_hash<K>,
+    phmap::priv::hash_default_eq<K>,
+    phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
+    N,
+    M>;
+
 namespace bsci {
+
+class GeometryGroup::ImplBase {
+public:
+    virtual ~ImplBase() = default;
+
+public:
+    struct Hook;
+    size_t                                      id{};
+    ph_flat_hash_map<GeoId, std::vector<GeoId>> geoGroup;
+};
+
+static std::recursive_mutex        listMutex;
+static std::vector<GeometryGroup*> list;
+static std::atomic_bool            hasInstance{false};
+static size_t                      listtick;
+
+LL_TYPE_INSTANCE_HOOK(
+    GeometryGroup::ImplBase::Hook,
+    HookPriority::Normal,
+    Minecraft,
+    &Minecraft::update,
+    bool
+) {
+    if (mSimTimer.mTicks && ll::getGamingStatus() == ll::GamingStatus::Running) {
+        if (hasInstance) {
+            std::lock_guard l{listMutex};
+            listtick++;
+            for (auto s : list) {
+                s->tick({listtick});
+            }
+        }
+    }
+    return origin();
+}
+
+// GeometryGroup::GeometryGroup() : impl(std::make_unique<ImplBase>()) {
+//     static ll::memory::HookRegistrar<GeometryGroup::ImplBase::Hook> reg;
+//     std::lock_guard                                                 l{listMutex};
+//     hasInstance = true;
+//     impl->id    = list.size();
+//     list.push_back(this);
+// }
+GeometryGroup::~GeometryGroup() {
+    std::lock_guard l{listMutex};
+    list.back()->impl->id = impl->id;
+    std::swap(list[impl->id], list.back());
+    list.pop_back();
+    hasInstance = !list.empty();
+}
 
 GeometryGroup::GeoId GeometryGroup::getNextGeoId() const {
     static std::atomic_uint64_t id{};
@@ -18,7 +88,7 @@ GeometryGroup::GeoId GeometryGroup::line(
 ) {
     std::vector<GeoId> ids;
     ids.reserve(dots.size() - 1);
-    for (auto [begin, end] : dots | std::views::pairwise) {
+    for (const auto [begin, end] : dots | std::views::pairwise) {
         ids.emplace_back(line(dim, begin, end, color, thickness));
     }
     return merge(ids);

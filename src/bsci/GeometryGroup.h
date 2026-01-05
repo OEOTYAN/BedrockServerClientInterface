@@ -5,15 +5,28 @@
 
 #include <mc/deps/core/math/Color.h>
 #include <mc/deps/core/utility/AutomaticID.h>
+#include <mc/world/level/Tick.h>
+
 
 namespace bsci {
 class GeometryGroup {
 public:
     struct GeoId {
-        uint64             value;
+        uint64             value = 0;
         constexpr bool     operator==(GeoId const& other) const { return other.value == value; }
         explicit constexpr operator bool() const { return value == 0; }
     };
+
+protected:
+    class ImplBase;
+
+    std::unique_ptr<ImplBase> impl;
+
+    template <typename T>
+    T& getImplAs() {
+        static_assert(std::is_base_of_v<ImplBase, T>, "T must inherit from ImplBase");
+        return static_cast<T&>(*impl);
+    }
 
 protected:
     BSCI_API GeoId getNextGeoId() const;
@@ -21,7 +34,11 @@ protected:
 public:
     BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
 
-    BSCI_API virtual ~GeometryGroup() = default;
+    GeometryGroup();
+
+    BSCI_API virtual ~GeometryGroup();
+
+    virtual void tick(Tick const& tick) = 0;
 
     virtual GeoId point(
         DimensionType        dim,
