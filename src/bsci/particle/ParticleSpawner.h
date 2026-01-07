@@ -2,24 +2,23 @@
 
 #include "bsci/GeometryGroup.h"
 
-#include <memory>
-
 #include <mc/util/MolangVariableMap.h>
 #include <mc/world/level/Tick.h>
 
 namespace bsci {
 class ParticleSpawner : public GeometryGroup {
-    struct Impl;
-    std::unique_ptr<Impl> impl;
+public:
+    class Impl;
 
+private:
     GeoId particle(
         DimensionType      dim,
         Vec3 const&        pos,
         std::string const& name,
         MolangVariableMap  var = {}
-    ) const;
+    );
 
-    void tick(Tick const& tick);
+    void tick(Tick const& tick) override;
 
 public:
     BSCI_API ParticleSpawner();

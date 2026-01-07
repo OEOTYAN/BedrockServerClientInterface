@@ -1,12 +1,11 @@
 #pragma once
 
 #include "bsci/Marcos.h"
-#include "bsci/utils/Math.h"
 
 #include <mc/deps/core/math/Color.h>
 #include <mc/deps/core/utility/AutomaticID.h>
 #include <mc/world/level/Tick.h>
-
+#include <mc/world/phys/AABB.h>
 
 namespace bsci {
 class GeometryGroup {
@@ -17,19 +16,26 @@ public:
         explicit constexpr operator bool() const { return value == 0; }
     };
 
-protected:
-    class ImplBase;
+    // protected:
+    class ImplBase {
+    public:
+        virtual ~ImplBase() = default;
+
+    public:
+        struct Hook;
+        size_t id{};
+    };
 
     std::unique_ptr<ImplBase> impl;
 
     template <typename T>
-    T& getImplAs() {
+    T& getImpl() {
         static_assert(std::is_base_of_v<ImplBase, T>, "T must inherit from ImplBase");
         return static_cast<T&>(*impl);
     }
 
 protected:
-    BSCI_API GeoId getNextGeoId() const;
+    [[nodiscard]] BSCI_API GeoId getNextGeoId() const;
 
 public:
     BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
@@ -37,6 +43,8 @@ public:
     GeometryGroup();
 
     BSCI_API virtual ~GeometryGroup();
+
+    virtual void addToTickList();
 
     virtual void tick(Tick const& tick) = 0;
 
@@ -98,6 +106,40 @@ public:
         float                radius,
         mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}
+    );
+
+    BSCI_API virtual GeoId circle2(
+        DimensionType     dim,
+        Vec3 const&       center,
+        Vec3 const&       normal,
+        float             radius,
+        mce::Color const& color = mce::Color::WHITE()
+    );
+
+    BSCI_API virtual GeoId sphere2(
+        DimensionType        dim,
+        Vec3 const&          center,
+        float                radius,
+        mce::Color const&    color        = mce::Color::WHITE(),
+        std::optional<uchar> mNumSegments = {}
+    );
+
+    BSCI_API virtual GeoId arrow(
+        DimensionType        dim,
+        Vec3 const&          begin,
+        Vec3 const&          end,
+        mce::Color const&    color            = mce::Color::WHITE(),
+        std::optional<float> mArrowHeadLength = {},
+        std::optional<float> mArrowHeadRadius = {},
+        std::optional<uchar> mNumSegments     = {}
+    );
+
+    BSCI_API virtual GeoId text(
+        DimensionType        dim,
+        Vec3 const&          pos,
+        std::string&         text,
+        mce::Color const&    color = mce::Color::WHITE(),
+        std::optional<float> scale = {}
     );
 };
 } // namespace bsci

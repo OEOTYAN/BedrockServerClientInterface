@@ -1,5 +1,6 @@
 #include "GeometryGroup.h"
 #include "BedrockServerClientInterface.h"
+#include "bsci/utils/Math.h"
 
 #include <ll/api/memory/Hook.h>
 #include <ll/api/memory/Memory.h>
@@ -13,29 +14,8 @@
 #include <numbers>
 #include <ranges>
 
-#include <parallel_hashmap/phmap.h>
-
-template <class K, class V, size_t N = 4, class M = std::shared_mutex>
-using ph_flat_hash_map = phmap::parallel_flat_hash_map<
-    K,
-    V,
-    phmap::priv::hash_default_hash<K>,
-    phmap::priv::hash_default_eq<K>,
-    phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
-    N,
-    M>;
 
 namespace bsci {
-
-class GeometryGroup::ImplBase {
-public:
-    virtual ~ImplBase() = default;
-
-public:
-    struct Hook;
-    size_t                                      id{};
-    ph_flat_hash_map<GeoId, std::vector<GeoId>> geoGroup;
-};
 
 static std::recursive_mutex        listMutex;
 static std::vector<GeometryGroup*> list;
@@ -61,19 +41,21 @@ LL_TYPE_INSTANCE_HOOK(
     return origin();
 }
 
-// GeometryGroup::GeometryGroup() : impl(std::make_unique<ImplBase>()) {
-//     static ll::memory::HookRegistrar<GeometryGroup::ImplBase::Hook> reg;
-//     std::lock_guard                                                 l{listMutex};
-//     hasInstance = true;
-//     impl->id    = list.size();
-//     list.push_back(this);
-// }
+GeometryGroup ::GeometryGroup() = default;
 GeometryGroup::~GeometryGroup() {
     std::lock_guard l{listMutex};
     list.back()->impl->id = impl->id;
     std::swap(list[impl->id], list.back());
     list.pop_back();
     hasInstance = !list.empty();
+}
+
+void GeometryGroup::addToTickList() {
+    static ll::memory::HookRegistrar<GeometryGroup::ImplBase::Hook> reg;
+    std::lock_guard                                                 l{listMutex};
+    hasInstance = true;
+    impl->id    = list.size();
+    list.push_back(this);
 }
 
 GeometryGroup::GeoId GeometryGroup::getNextGeoId() const {
@@ -253,5 +235,25 @@ GeometryGroup::GeoId GeometryGroup::sphere(
         }
     }
     return merge(ids);
+}
+
+GeometryGroup::GeoId
+GeometryGroup::circle2(DimensionType, Vec3 const&, Vec3 const&, float, mce::Color const&) {
+    return {};
+}
+
+GeometryGroup::GeoId
+GeometryGroup::sphere2(DimensionType, Vec3 const&, float, mce::Color const&, std::optional<uchar>) {
+    return {};
+}
+
+GeometryGroup::GeoId GeometryGroup::
+    arrow(DimensionType, Vec3 const&, Vec3 const&, mce::Color const&, std::optional<float>, std::optional<float>, std::optional<uchar>) {
+    return {};
+}
+
+GeometryGroup::GeoId GeometryGroup::
+    text(DimensionType, Vec3 const&, std::string&, mce::Color const&, std::optional<float>) {
+    return {};
 }
 } // namespace bsci

@@ -1,17 +1,30 @@
 #include "BedrockServerClientInterface.h"
 
 #include "bsci/GeometryGroup.h"
+#include "ll/api/command/runtime/ParamKind.h"
 
 #include <ll/api/Config.h>
 #include <ll/api/mod/NativeMod.h>
 #include <ll/api/mod/RegisterHelper.h>
 #include <ll/api/utils/ErrorUtils.h>
+#include <memory>
+#include <string>
+#include <vector>
 
 // #define TEST
 
+#ifdef TEST
+#include "bsci/test/Test.h"
+#endif
+
 namespace bsci {
 
-struct BedrockServerClientInterface::Impl {};
+struct BedrockServerClientInterface::Impl {
+#ifdef TEST
+    std::unique_ptr<GeometryGroup>    geoTest = GeometryGroup::createDefault();
+    std::vector<GeometryGroup::GeoId> gids;
+#endif
+};
 
 BedrockServerClientInterface::BedrockServerClientInterface()
 : self(*ll::mod::NativeMod::current()),
@@ -61,22 +74,23 @@ bool BedrockServerClientInterface::enable() {
         loadConfig();
     }
 #ifdef TEST
-    std::thread([] {
-        auto                 geo = bsci::GeometryGroup::createDefault();
-        GeometryGroup::GeoId eee{};
-        auto gid = geo->circle(0, BlockPos{0, 90, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
-        for (size_t i = 0;; i++) {
-            using namespace std::chrono_literals;
+    test::registerTestCommand(impl->geoTest, impl->gids);
+    // std::thread([&logger = getLogger()] {
+    //     auto                 geo = bsci::GeometryGroup::createDefault();
+    //     GeometryGroup::GeoId eee{};
+    //     auto gid = geo->circle(0, BlockPos{0, 90, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
+    //     for (size_t i = 0;; i++) {
+    //         using namespace std::chrono_literals;
+    //         // geo->shift(gid, {0, 0.01, 1});
 
-            geo->shift(gid, {0, 0.01, 1});
+    //         geo->remove(eee);
 
-            geo->remove(eee);
+    //         eee = geo->sphere(0, BlockPos{0, 100, i}, 5, mce::Color{0, 33, 133, 50} * 1.6);
 
-            eee = geo->sphere(0, BlockPos{0, 100, i}, 5, mce::Color{0, 33, 133, 50} * 1.6);
+    //         std::this_thread::sleep_for(10s);
+    //     }
+    // }).detach();
 
-            std::this_thread::sleep_for(1s);
-        }
-    }).detach();
 #endif
     return true;
 }

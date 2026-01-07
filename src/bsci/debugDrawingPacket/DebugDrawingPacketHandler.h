@@ -1,33 +1,18 @@
 #pragma once
 
 #include "bsci/GeometryGroup.h"
-#include "bsci/particle/ParticleSpawner.h"
-#include "mc/network/packet/DebugDrawerPacket.h"
-
-#include <parallel_hashmap/phmap.h>
-
-
-template <class K, class V, size_t N = 4, class M = std::shared_mutex>
-using ph_flat_hash_map = phmap::parallel_flat_hash_map<
-    K,
-    V,
-    phmap::priv::hash_default_hash<K>,
-    phmap::priv::hash_default_eq<K>,
-    phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
-    N,
-    M>;
 
 namespace bsci {
 class DebugDrawingPacketHandler : public GeometryGroup {
 private:
-    std::unique_ptr<ParticleSpawner> particleSpawner =
-        std::make_unique<ParticleSpawner>(); // 向前兼容
-    ph_flat_hash_map<GeoId, std::pair<std::vector<std::unique_ptr<DebugDrawerPacket>>, bool>>
-        geoPackets; // bool = true 表示已启用ParticleSpawner
+    class Impl;
 
 public:
     DebugDrawingPacketHandler();
     ~DebugDrawingPacketHandler();
+
+private:
+    void tick(Tick const& tick) override;
 
 public:
     GeoId point(
@@ -51,13 +36,13 @@ public:
         mce::Color const&    color     = mce::Color::WHITE(),
         std::optional<float> thickness = {}) override;
 
-    BSCI_API virtual GeoId circle2(
+    GeoId circle2(
         DimensionType     dim,
         Vec3 const&       center,
         Vec3 const&       normal,
         float             radius,
         mce::Color const& color = mce::Color::WHITE()
-    );
+    ) override;
 
     // GeoId cylinder(
     //     DimensionType        dim,
@@ -68,15 +53,15 @@ public:
     //     std::optional<float> thickness = {}
     // ) override;
 
-    BSCI_API virtual GeoId sphere2(
+    GeoId sphere2(
         DimensionType        dim,
         Vec3 const&          center,
         float                radius,
         mce::Color const&    color        = mce::Color::WHITE(),
         std::optional<uchar> mNumSegments = {}
-    );
+    ) override;
 
-    BSCI_API virtual GeoId arrow(
+    GeoId arrow(
         DimensionType        dim,
         Vec3 const&          begin,
         Vec3 const&          end,
@@ -84,15 +69,15 @@ public:
         std::optional<float> mArrowHeadLength = {},
         std::optional<float> mArrowHeadRadius = {},
         std::optional<uchar> mNumSegments     = {}
-    );
+    ) override;
 
-    BSCI_API virtual GeoId text(
+    GeoId text(
         DimensionType        dim,
         Vec3 const&          pos,
-        std::string          text,
+        std::string&         text,
         mce::Color const&    color = mce::Color::WHITE(),
         std::optional<float> scale = {}
-    );
+    ) override;
 
     bool remove(GeoId) override;
 
