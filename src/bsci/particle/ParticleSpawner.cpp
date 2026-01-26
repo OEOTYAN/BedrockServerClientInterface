@@ -15,16 +15,17 @@
 #include <mc/util/MolangMemberArray.h>
 #include <mc/util/MolangMemberVariable.h>
 #include <mc/util/MolangScriptArg.h>
-#include <mc/util/MolangVariable.h>
-#include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangStruct_RGBA.h>
 #include <mc/util/MolangStruct_XY.h>
 #include <mc/util/MolangStruct_XYZ.h>
+#include <mc/util/MolangVariable.h>
+#include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangVariableSettings.h>
 #include <mc/util/Timer.h>
 #include <mc/world/Minecraft.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
+
 
 #include <parallel_hashmap/phmap.h>
 
@@ -48,9 +49,9 @@ MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
 }
 
 namespace bsci {
-std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
-    return std::make_unique<ParticleSpawner>();
-}
+// std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
+//     return std::make_unique<ParticleSpawner>();
+// }
 
 static void addTime(MolangVariableMap& var) {
     auto& config = BedrockServerClientInterface::getInstance().getConfig().particle;

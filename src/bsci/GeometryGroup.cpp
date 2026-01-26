@@ -1,5 +1,6 @@
 #include "GeometryGroup.h"
 #include "BedrockServerClientInterface.h"
+#include "bsci/utils/Math.h"
 
 #include <numbers>
 #include <ranges>
@@ -183,5 +184,30 @@ GeometryGroup::GeoId GeometryGroup::sphere(
         }
     }
     return merge(ids);
+}
+
+GeometryGroup::GeoId GeometryGroup::circle2(
+    DimensionType     dim,
+    Vec3 const&       center,
+    Vec3 const&       normal,
+    float             radius,
+    mce::Color const& color
+) {
+    return circle(dim, center, normal, radius, color);
+}
+
+GeometryGroup::GeoId GeometryGroup::
+    sphere2(DimensionType dim, Vec3 const& center, float radius, mce::Color const& color, std::optional<uchar>) {
+    return sphere(dim, center, radius, color);
+}
+
+GeometryGroup::GeoId GeometryGroup::
+    arrow(DimensionType dim, Vec3 const& begin, Vec3 const& end, mce::Color const& color, std::optional<float>, std::optional<float>, std::optional<uchar>) {
+    return line(dim, begin, end, color);
+}
+
+GeometryGroup::GeoId GeometryGroup::
+    text(DimensionType, Vec3 const&, std::string&, mce::Color const&, std::optional<float>) {
+    return {};
 }
 } // namespace bsci

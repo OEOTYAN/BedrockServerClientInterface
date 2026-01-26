@@ -1,17 +1,24 @@
 #include "BedrockServerClientInterface.h"
 
-#include "bsci/GeometryGroup.h"
 
 #include <ll/api/Config.h>
 #include <ll/api/mod/NativeMod.h>
 #include <ll/api/mod/RegisterHelper.h>
 #include <ll/api/utils/ErrorUtils.h>
 
-// #define TEST
+#ifdef TEST
+#include "bsci/GeometryGroup.h"
+#include "bsci/test/Test.h"
+#endif
 
 namespace bsci {
 
-struct BedrockServerClientInterface::Impl {};
+struct BedrockServerClientInterface::Impl {
+#ifdef TEST
+    std::unique_ptr<GeometryGroup>    geoTest = GeometryGroup::createDefault();
+    std::vector<GeometryGroup::GeoId> gids;
+#endif
+};
 
 BedrockServerClientInterface::BedrockServerClientInterface()
 : self(*ll::mod::NativeMod::current()),
@@ -61,7 +68,8 @@ bool BedrockServerClientInterface::enable() {
         loadConfig();
     }
 #ifdef TEST
-    std::thread([] {
+    test::registerTestCommand(impl->geoTest, impl->gids);
+    std::thread([this] {
         auto                 geo = bsci::GeometryGroup::createDefault();
         GeometryGroup::GeoId eee{};
         auto gid = geo->circle(0, BlockPos{0, 90, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
@@ -72,7 +80,7 @@ bool BedrockServerClientInterface::enable() {
 
             geo->remove(eee);
 
-            eee = geo->sphere(0, BlockPos{0, 100, i}, 5, mce::Color{0, 33, 133, 50} * 1.6);
+            eee = geo->sphere(0, BlockPos{0, 100, i}, 7, mce::Color{0, 33, 133, 50} * 1.6);
 
             std::this_thread::sleep_for(1s);
         }
