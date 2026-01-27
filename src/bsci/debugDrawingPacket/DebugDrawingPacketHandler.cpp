@@ -25,8 +25,8 @@ TextDataPayload::TextDataPayload() = default;
 TextDataPayload::TextDataPayload(TextDataPayload const& cp) { mText = cp.mText; };
 // ShapeDataPayload::ShapeDataPayload() = default;
 ShapeDataPayload::ShapeDataPayload() { mNetworkId = 0; };
-DebugDrawerPacketPayload::DebugDrawerPacketPayload()                                = default;
-DebugDrawerPacketPayload::DebugDrawerPacketPayload(DebugDrawerPacketPayload const&) = default;
+// DebugDrawerPacketPayload::DebugDrawerPacketPayload()                                = default;
+// DebugDrawerPacketPayload::DebugDrawerPacketPayload(DebugDrawerPacketPayload const&) = default;
 
 template <class K, class V, size_t N = 4, class M = std::shared_mutex>
 using ph_flat_hash_map = phmap::parallel_flat_hash_map<
@@ -432,10 +432,10 @@ bool DebugDrawingPacketHandler::remove(GeoId id) {
     this->impl->geoPackets.erase_if(id, [this, id, &removePackets](auto&& iter) {
         if (iter.second.second) this->impl->particleSpawner->remove(iter.first);
         for (auto& packet : iter.second.first) {
-            if (packet && !packet->mShapes->empty()
-                && (*packet->mShapes)[0].mLocation->has_value()) {
+            if (packet && !packet->mShapes->empty() && (*packet->mShapes)[0].mLocation->has_value()
+                && (*packet->mShapes)[0].mDimensionId->has_value()) {
                 auto chunkPos = ChunkPos((*packet->mShapes)[0].mLocation->value());
-                auto dimId    = (int)*(*packet->mShapes)[0].mDimensionId;
+                auto dimId    = (int)(*packet->mShapes)[0].mDimensionId->value();
                 auto key      = std::make_pair(chunkPos, dimId);
                 this->impl->chunkPackets.erase_if(key, [this, id](auto&& iter) {
                     auto it = std::lower_bound(
@@ -483,9 +483,10 @@ GeometryGroup::GeoId DebugDrawingPacketHandler::merge(std::span<GeoId> ids) {
             // 处理包的合并
             std::erase_if(iter.second.first, [&temMap, id](auto&& packet) {
                 if (packet && !packet->mShapes->empty()
-                    && (*packet->mShapes)[0].mLocation->has_value()) {
+                    && (*packet->mShapes)[0].mLocation->has_value()
+                    && (*packet->mShapes)[0].mDimensionId->has_value()) {
                     auto chunkPos         = ChunkPos((*packet->mShapes)[0].mLocation->value());
-                    auto dimId            = (int)*(*packet->mShapes)[0].mDimensionId;
+                    auto dimId            = (int)(*packet->mShapes)[0].mDimensionId->value();
                     auto key              = std::make_pair(chunkPos, dimId);
                     auto [iter, inserted] = temMap.try_emplace(key);
 
@@ -563,10 +564,10 @@ bool DebugDrawingPacketHandler::shift(GeoId id, Vec3 const& v) {
             temMap; // 用来处理shape跨区块
 
         std::erase_if(iter.second.first, [&temMap, &v](auto&& packet) {
-            if (packet && !packet->mShapes->empty()
-                && (*packet->mShapes)[0].mLocation->has_value()) {
+            if (packet && !packet->mShapes->empty() && (*packet->mShapes)[0].mLocation->has_value()
+                && (*packet->mShapes)[0].mDimensionId->has_value()) {
                 auto chunkPos = ChunkPos((*packet->mShapes)[0].mLocation->value());
-                auto dimId    = (int)*(*packet->mShapes)[0].mDimensionId;
+                auto dimId    = (int)(*packet->mShapes)[0].mDimensionId->value();
 
                 // 插入空值，用于标记原区块
                 temMap.try_emplace(std::make_pair(chunkPos, dimId));
@@ -628,10 +629,11 @@ bool DebugDrawingPacketHandler::shift(GeoId id, Vec3 const& v) {
         }
         for (auto& pkt : iter.second.first)
             ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-                if (pkt && !pkt->mShapes->empty() && (*pkt->mShapes)[0].mLocation->has_value()) {
+                if (pkt && !pkt->mShapes->empty() && (*pkt->mShapes)[0].mLocation->has_value()
+                    && (*pkt->mShapes)[0].mDimensionId->has_value()) {
                     pkt->sendTo(
                         (*pkt->mShapes)[0].mLocation->value(),
-                        (*pkt->mShapes)[0].mDimensionId
+                        (*pkt->mShapes)[0].mDimensionId->value()
                     );
                 }
             });

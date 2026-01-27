@@ -2,12 +2,23 @@ add_rules("mode.release")
 
 add_repositories("liteldev-repo https://github.com/LiteLDev/xmake-repo.git")
 
-add_requires("levilamina")
+if is_config("target_type", "server") then
+    add_requires("levilamina 1.9.1", {configs = {target_type = "server"}})
+else
+    add_requires("levilamina 1.9.1", {configs = {target_type = "client"}})
+end
+
 add_requires("levibuildscript")
 
 if not has_config("vs_runtime") then
     set_runtimes("MD")
 end
+
+option("target_type")
+    set_default("server")
+    set_showmenu(true)
+    set_values("server", "client")
+option_end()
 
 target("BedrockServerClientInterface")
     add_rules("@levibuildscript/linkrule")
@@ -31,3 +42,12 @@ target("BedrockServerClientInterface")
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")
+    if is_config("target_type", "server") then
+        add_defines("LL_PLAT_S")
+    --  add_includedirs("src-server")
+    --  add_files("src-server/**.cpp")
+    else
+        add_defines("LL_PLAT_C")
+    --  add_includedirs("src-client")
+    --  add_files("src-client/**.cpp")
+    end

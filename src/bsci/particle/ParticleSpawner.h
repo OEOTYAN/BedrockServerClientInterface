@@ -12,12 +12,9 @@ class ParticleSpawner : public GeometryGroup {
     struct Impl;
     std::unique_ptr<Impl> impl;
 
-    GeoId particle(
-        DimensionType      dim,
-        Vec3 const&        pos,
-        std::string const& name,
-        MolangVariableMap  var = {}
-    ) const;
+    GeoId
+    particle(DimensionType dim, Vec3 const& pos, std::string const& name, MolangVariableMap& var)
+        const;
 
     void tick(Tick const& tick);
 
