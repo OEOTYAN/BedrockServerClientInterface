@@ -40,14 +40,15 @@ using ph_flat_hash_map = phmap::parallel_flat_hash_map<
     N,
     M>;
 
-MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
-    mMapFromVariableIndexToVariableArrayOffset = rhs.mMapFromVariableIndexToVariableArrayOffset;
-    mVariables                                 = {};
-    for (auto& ptr : *rhs.mVariables) {
-        mVariables->push_back(std::make_unique<MolangVariable>(*ptr));
-    }
-    mHasPublicVariables = rhs.mHasPublicVariables;
-}
+MolangScriptArg::MolangScriptArg() = default;
+// MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
+//     mMapFromVariableIndexToVariableArrayOffset =
+//     rhs.mMapFromVariableIndexToVariableArrayOffset; mVariables = {}; for (auto& ptr :
+//     *rhs.mVariables) {
+//         mVariables->push_back(std::make_unique<MolangVariable>(*ptr));
+//     }
+//     mHasPublicVariables = rhs.mHasPublicVariables;
+// }
 
 namespace bsci {
 // std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
@@ -127,7 +128,8 @@ void ParticleSpawner::tick(Tick const& tick) {
         impl->geoPackets.with_submap(begin + i, [&](auto& map) {
             for (auto& [id, pkt] : map) {
                 if (pkt)
-                    pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
+                    pkt->sendTo(*pkt->mPos,
+                                pkt->mVanillaDimensionId); // tick must in server thread
             }
         });
     }

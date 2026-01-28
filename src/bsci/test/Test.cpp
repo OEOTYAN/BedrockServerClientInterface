@@ -2,13 +2,13 @@
 
 #ifdef TEST
 #include "bsci/GeometryGroup.h"
-#include "bsci/debugDrawingPacket/DebugDrawingPacketHandler.h"
 #include "ll/api/command/CommandHandle.h"
 #include "ll/api/command/CommandRegistrar.h"
 #include "ll/api/command/runtime/ParamKind.h"
 #include "ll/api/command/runtime/RuntimeCommand.h"
 #include "ll/api/command/runtime/RuntimeOverload.h"
 #include "mc/deps/core/math/Color.h"
+#include "mc/server/commands/CommandOutput.h"
 #include "mc/world/level/Level.h"
 #include <ll/api/memory/Hook.h>
 #include <memory>
@@ -20,7 +20,7 @@ void registerTestCommand(
     std::vector<GeometryGroup::GeoId>& gids
 ) {
 
-    auto& cmd = ll::command::CommandRegistrar::getInstance()
+    auto& cmd = ll::command::CommandRegistrar::getInstance(false)
                     .getOrCreateCommand("bsci", "bsci api test", CommandPermissionLevel::Any);
 
     cmd.runtimeOverload()
@@ -41,7 +41,7 @@ void registerTestCommand(
             output.success("a");
             auto gid = geo->point(dim, pos);
             output.success("a");
-            gids.emplace_back(std::move(gid));
+            gids.emplace_back(gid);
             output.success("draw point");
         });
 
@@ -186,16 +186,15 @@ void registerTestCommand(
             output.success("draw sphere");
         });
 
-    cmd.runtimeOverload().text("clear").execute([&geo, &gids](
-                                                    CommandOrigin const&               origin,
-                                                    CommandOutput&                     output,
-                                                    ll::command::RuntimeCommand const& self
-                                                ) {
-        for (auto& gid : gids) {
-            geo->remove(gid);
+    cmd.runtimeOverload().text("clear").execute(
+        [&geo,
+         &gids](CommandOrigin const&, CommandOutput& output, ll::command::RuntimeCommand const&) {
+            for (auto& gid : gids) {
+                geo->remove(gid);
+            }
+            output.success("clear all");
         }
-        output.success("clear all");
-    });
+    );
 
     cmd.runtimeOverload()
         .text("shift")
