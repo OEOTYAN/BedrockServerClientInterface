@@ -13,6 +13,8 @@ public:
         uint64             value;
         constexpr bool     operator==(GeoId const& other) const { return other.value == value; }
         explicit constexpr operator bool() const { return value == 0; }
+
+        static constexpr GeoId invalid() { return GeoId{0}; }
     };
 
 protected:
@@ -23,12 +25,12 @@ public:
 
     BSCI_API virtual ~GeometryGroup() = default;
 
-    virtual GeoId point(
+    BSCI_API virtual GeoId point(
         DimensionType        dim,
         Vec3 const&          pos,
         mce::Color const&    color  = mce::Color::WHITE(),
         std::optional<float> radius = {}
-    ) = 0;
+    );
 
     virtual GeoId line(
         DimensionType        dim,
@@ -83,36 +85,19 @@ public:
         std::optional<float> thickness = {}
     );
 
-    BSCI_API virtual GeoId circle2(
-        DimensionType     dim,
-        Vec3 const&       center,
-        Vec3 const&       normal,
-        float             radius,
-        mce::Color const& color = mce::Color::WHITE()
-    );
-
-    BSCI_API virtual GeoId sphere2(
-        DimensionType        dim,
-        Vec3 const&          center,
-        float                radius,
-        mce::Color const&    color        = mce::Color::WHITE(),
-        std::optional<uchar> mNumSegments = {}
-    );
-
     BSCI_API virtual GeoId arrow(
         DimensionType        dim,
         Vec3 const&          begin,
         Vec3 const&          end,
         mce::Color const&    color            = mce::Color::WHITE(),
         std::optional<float> mArrowHeadLength = {},
-        std::optional<float> mArrowHeadRadius = {},
-        std::optional<uchar> mNumSegments     = {}
+        std::optional<float> mArrowHeadRadius = {}
     );
 
     BSCI_API virtual GeoId text(
         DimensionType        dim,
         Vec3 const&          pos,
-        std::string&         text,
+        std::string          text,
         mce::Color const&    color = mce::Color::WHITE(),
         std::optional<float> scale = {}
     );

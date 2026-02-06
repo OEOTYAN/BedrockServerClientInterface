@@ -1,6 +1,7 @@
 #include "bsci/particle/ParticleSpawner.h"
 #include "BedrockServerClientInterface.h"
 
+#include <ll/api/base/Containers.h>
 #include <ll/api/memory/Hook.h>
 #include <ll/api/memory/Memory.h>
 #include <ll/api/service/Bedrock.h>
@@ -26,19 +27,6 @@
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
 
-
-#include <parallel_hashmap/phmap.h>
-
-
-template <class K, class V, size_t N = 4, class M = std::shared_mutex>
-using ph_flat_hash_map = phmap::parallel_flat_hash_map<
-    K,
-    V,
-    phmap::priv::hash_default_hash<K>,
-    phmap::priv::hash_default_eq<K>,
-    phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
-    N,
-    M>;
 
 MolangScriptArg::MolangScriptArg() = default;
 // MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
@@ -82,9 +70,16 @@ static void addDirection(MolangVariableMap& var, Vec3 const& dir) {
 }
 struct ParticleSpawner::Impl {
     struct Hook;
-    size_t                                                                 id{};
-    ph_flat_hash_map<GeoId, std::unique_ptr<SpawnParticleEffectPacket>, 6> geoPackets;
-    ph_flat_hash_map<GeoId, std::vector<GeoId>>                            geoGroup;
+    size_t id{};
+    ll::ConcurrentDenseMap<
+        GeoId,
+        std::unique_ptr<SpawnParticleEffectPacket>,
+        ::phmap::priv::hash_default_hash<GeoId>,
+        ::phmap::priv::hash_default_eq<GeoId>,
+        ::std::allocator<::std::pair<GeoId const, std::unique_ptr<SpawnParticleEffectPacket>>>,
+        6>
+                                                      geoPackets;
+    ll::ConcurrentDenseMap<GeoId, std::vector<GeoId>> geoGroup;
 
     void sendParticleImmediately(SpawnParticleEffectPacket& pkt) {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
@@ -172,7 +167,7 @@ GeometryGroup::GeoId ParticleSpawner::line(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    if (begin == end) return {};
+    if (begin == end) return GeoId::invalid();
     MolangVariableMap var;
     addSize(
         var,
@@ -225,7 +220,7 @@ bool ParticleSpawner::remove(GeoId id) {
 
 GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
     if (ids.empty()) {
-        return {0};
+        return GeoId::invalid();
     }
     auto               id = GeometryGroup::getNextGeoId();
     std::vector<GeoId> res;

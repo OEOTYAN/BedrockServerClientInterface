@@ -1,15 +1,38 @@
 #include "GeometryGroup.h"
-#include "BedrockServerClientInterface.h"
-#include "bsci/utils/Math.h"
 
 #include <numbers>
 #include <ranges>
 
+#include "BedrockServerClientInterface.h"
+#include "bsci/utils/Math.h"
+#include "bsci/particle/ParticleSpawner.h"
+#include "bsci/debug_draw/DebugDrawingHandler.h"
+
+
 namespace bsci {
+
+
+std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
+    auto& type = BedrockServerClientInterface::getInstance().getConfig().defaultGroup;
+    if (type == "particle") {
+        return std::make_unique<ParticleSpawner>();
+    } else {
+        return std::make_unique<DebugDrawingHandler>();
+    }
+}
 
 GeometryGroup::GeoId GeometryGroup::getNextGeoId() const {
     static std::atomic_uint64_t id{};
     return {++id};
+}
+GeometryGroup::GeoId GeometryGroup::point(
+    DimensionType        dim,
+    Vec3 const&          pos,
+    mce::Color const&    color,
+    std::optional<float> radius
+) {
+    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    return sphere(dim, pos, radius.value_or(config.defaultPointRadius), color);
 }
 GeometryGroup::GeoId GeometryGroup::line(
     DimensionType        dim,
@@ -186,28 +209,13 @@ GeometryGroup::GeoId GeometryGroup::sphere(
     return merge(ids);
 }
 
-GeometryGroup::GeoId GeometryGroup::circle2(
-    DimensionType     dim,
-    Vec3 const&       center,
-    Vec3 const&       normal,
-    float             radius,
-    mce::Color const& color
-) {
-    return circle(dim, center, normal, radius, color);
-}
-
 GeometryGroup::GeoId GeometryGroup::
-    sphere2(DimensionType dim, Vec3 const& center, float radius, mce::Color const& color, std::optional<uchar>) {
-    return sphere(dim, center, radius, color);
-}
-
-GeometryGroup::GeoId GeometryGroup::
-    arrow(DimensionType dim, Vec3 const& begin, Vec3 const& end, mce::Color const& color, std::optional<float>, std::optional<float>, std::optional<uchar>) {
+    arrow(DimensionType dim, Vec3 const& begin, Vec3 const& end, mce::Color const& color, std::optional<float>, std::optional<float>) {
     return line(dim, begin, end, color);
 }
 
 GeometryGroup::GeoId GeometryGroup::
-    text(DimensionType, Vec3 const&, std::string&, mce::Color const&, std::optional<float>) {
-    return {};
+    text(DimensionType, Vec3 const&, std::string, mce::Color const&, std::optional<float>) {
+    return GeoId::invalid();
 }
 } // namespace bsci

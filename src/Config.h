@@ -2,7 +2,10 @@
 
 namespace bsci {
 struct Config {
-    int version = 2;
+    int version = 3;
+
+    std::string defaultGroup = "debugDraw";
+
     struct {
         size_t maxCircleSegments  = 128;
         double minCircleSpacing   = 0.6;
@@ -14,5 +17,11 @@ struct Config {
         double defaultPointRadius = 0.3;
         bool   delayUndate        = false;
     } particle{};
+    struct {
+        bool useNativeCircle = false;
+        bool useNativeSphere = false;
+        std::optional<uchar> sphereSegments;
+        std::optional<uchar> arrowSegments;
+    } debugDraw{};
 };
 } // namespace bsci
