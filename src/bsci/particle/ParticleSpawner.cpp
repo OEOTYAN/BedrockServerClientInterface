@@ -15,18 +15,20 @@
 #include <mc/util/MolangMemberArray.h>
 #include <mc/util/MolangMemberVariable.h>
 #include <mc/util/MolangScriptArg.h>
-#include <mc/util/MolangVariable.h>
-#include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangStruct_RGBA.h>
 #include <mc/util/MolangStruct_XY.h>
 #include <mc/util/MolangStruct_XYZ.h>
+#include <mc/util/MolangVariable.h>
+#include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangVariableSettings.h>
 #include <mc/util/Timer.h>
 #include <mc/world/Minecraft.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
 
+
 #include <parallel_hashmap/phmap.h>
+
 
 template <class K, class V, size_t N = 4, class M = std::shared_mutex>
 using ph_flat_hash_map = phmap::parallel_flat_hash_map<
@@ -38,19 +40,20 @@ using ph_flat_hash_map = phmap::parallel_flat_hash_map<
     N,
     M>;
 
-MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
-    mMapFromVariableIndexToVariableArrayOffset = rhs.mMapFromVariableIndexToVariableArrayOffset;
-    mVariables                                 = {};
-    for (auto& ptr : *rhs.mVariables) {
-        mVariables->push_back(std::make_unique<MolangVariable>(*ptr));
-    }
-    mHasPublicVariables = rhs.mHasPublicVariables;
-}
+MolangScriptArg::MolangScriptArg() = default;
+// MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
+//     mMapFromVariableIndexToVariableArrayOffset =
+//     rhs.mMapFromVariableIndexToVariableArrayOffset; mVariables = {}; for (auto& ptr :
+//     *rhs.mVariables) {
+//         mVariables->push_back(std::make_unique<MolangVariable>(*ptr));
+//     }
+//     mHasPublicVariables = rhs.mHasPublicVariables;
+// }
 
 namespace bsci {
-std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
-    return std::make_unique<ParticleSpawner>();
-}
+// std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
+//     return std::make_unique<ParticleSpawner>();
+// }
 
 static void addTime(MolangVariableMap& var) {
     auto& config = BedrockServerClientInterface::getInstance().getConfig().particle;
@@ -125,7 +128,8 @@ void ParticleSpawner::tick(Tick const& tick) {
         impl->geoPackets.with_submap(begin + i, [&](auto& map) {
             for (auto& [id, pkt] : map) {
                 if (pkt)
-                    pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId); // tick must in server thread
+                    pkt->sendTo(*pkt->mPos,
+                                pkt->mVanillaDimensionId); // tick must in server thread
             }
         });
     }

@@ -4,6 +4,8 @@
 
 #include "Config.h"
 
+// #define TEST
+
 namespace bsci {
 
 class BedrockServerClientInterface {
