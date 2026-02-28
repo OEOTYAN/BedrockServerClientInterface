@@ -158,17 +158,17 @@ DebugDrawingHandler::~DebugDrawingHandler() {
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::line(
-    DimensionType        dim,
-    Vec3 const&          begin,
-    Vec3 const&          end,
-    mce::Color const&    color,
+    DimensionType     dim,
+    Vec3 const&       begin,
+    Vec3 const&       end,
+    mce::Color const& color,
     std::optional<float> /*thickness*/
 ) {
     if (begin == end) return GeoId::invalid();
 
     Vec3   offset = end - begin;
     double len    = offset.length();
-    if (len <= shapeDisplayRadius) {
+    if (len <= shapeDisplayRadius + 0.5) { // 防止浮点误差导致的无限递归
         auto packet = std::make_shared<DebugDrawerPacket>();
         packet->setSerializationMode(SerializationMode::CerealOnly);
         ShapeDataPayload shape;
@@ -316,7 +316,7 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
 
     Vec3   offset = end - begin;
     double len    = offset.length();
-    if (len <= shapeDisplayRadius) {
+    if (len <= shapeDisplayRadius + 0.5) { // 防止浮点误差导致的无限递归
         auto packet = std::make_shared<DebugDrawerPacket>();
         packet->setSerializationMode(SerializationMode::CerealOnly);
         auto const&      config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
@@ -529,8 +529,7 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
                         if (std::holds_alternative<ArrowDataPayload>(*shape.mExtraDataPayload)) {
                             std::get<ArrowDataPayload>(*shape.mExtraDataPayload)
                                 .mEndLocation->value() += v;
-                        } else if (std::holds_alternative<LineDataPayload>(
-                                       *shape.mExtraDataPayload
+                        } else if (std::holds_alternative<LineDataPayload>(*shape.mExtraDataPayload
                                    )) {
                             *std::get<LineDataPayload>(*shape.mExtraDataPayload).mEndLocation += v;
                         }
