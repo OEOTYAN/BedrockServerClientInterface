@@ -15,7 +15,7 @@ namespace bsci {
 
 struct BedrockServerClientInterface::Impl {
 #ifdef TEST
-    std::unique_ptr<GeometryGroup>    geoTest = GeometryGroup::createDefault();
+    std::unique_ptr<GeometryGroup>    geoTest;
     std::vector<GeometryGroup::GeoId> gids;
 #endif
 };
@@ -68,6 +68,7 @@ bool BedrockServerClientInterface::enable() {
         loadConfig();
     }
 #ifdef TEST
+    impl->geoTest = GeometryGroup::createDefault();
     test::registerTestCommand(impl->geoTest, impl->gids);
     std::thread([this] {
         auto                 geo = bsci::GeometryGroup::createDefault();

@@ -10,8 +10,6 @@
 #include <variant>
 #include <vector>
 
-#include "bsci/particle/ParticleSpawner.h"
-
 #include <ll/api/base/Containers.h>
 #include <ll/api/memory/Hook.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
@@ -219,7 +217,7 @@ GeometryGroup::GeoId DebugDrawingHandler::box(
     ShapeDataPayload shape;
     shape.mNetworkId        = nextId_.fetch_sub(1);
     shape.mShapeType        = ScriptModuleDebugUtilities::ScriptDebugShapeType::Box;
-    shape.mLocation         = box.min;
+    shape.mLocation         = (box.min + box.max) / 2;
     shape.mColor            = color;
     shape.mDimensionId      = dim;
     shape.mExtraDataPayload = BoxDataPayload{.mBoxBound = box.max - box.min};

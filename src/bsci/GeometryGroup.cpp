@@ -4,9 +4,9 @@
 #include <ranges>
 
 #include "BedrockServerClientInterface.h"
-#include "bsci/utils/Math.h"
-#include "bsci/particle/ParticleSpawner.h"
 #include "bsci/debug_draw/DebugDrawingHandler.h"
+#include "bsci/particle/ParticleSpawner.h"
+#include "bsci/utils/Math.h"
 
 
 namespace bsci {
@@ -123,7 +123,7 @@ GeometryGroup::GeoId GeometryGroup::cylinder(
     auto const delta  = std::numbers::pi * 2 / (double)points;
 
     std::vector<GeoId> ids;
-    ids.reserve(points);
+    ids.reserve(3 * points);
     Vec3 lastPos = t * radius;
     for (size_t i{1}; i <= points; i++) {
         double theta = (double)i * delta;
@@ -217,5 +217,61 @@ GeometryGroup::GeoId GeometryGroup::
 GeometryGroup::GeoId GeometryGroup::
     text(DimensionType, Vec3 const&, std::string, mce::Color const&, std::optional<float>) {
     return GeoId::invalid();
+}
+
+GeometryGroup::GeoId GeometryGroup::cone(
+    DimensionType        dim,
+    Vec3 const&          topCenter,
+    Vec3 const&          bottomCenter,
+    float                topRadius,
+    float                bottomRadius,
+    mce::Color const&    color,
+    std::optional<float> thickness
+) {
+    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+
+    size_t const points =
+        (std::clamp(
+             (size_t)std::ceil(topRadius * std::numbers::pi * 2 / config.minCircleSpacing),
+             7ui64,
+             config.maxCircleSegments
+
+         )
+         + std::clamp(
+             (size_t)std::ceil(bottomRadius * std::numbers::pi * 2 / config.minCircleSpacing),
+             7ui64,
+             config.maxCircleSegments
+
+         ))
+        / 2;
+    auto const [t, b] = branchlessONB((topCenter - bottomCenter).normalize());
+    auto const delta  = std::numbers::pi * 2 / (double)points;
+
+    std::vector<GeoId> ids;
+    ids.reserve(3 * points);
+    Vec3 lastTopOffset    = t * topRadius;
+    Vec3 lastBottomOffset = t * bottomRadius;
+    for (size_t i{1}; i <= points; i++) {
+        double theta     = (double)i * delta;
+        Vec3   topOffset = t * (topRadius * std::cos(theta)) + b * topRadius * std::sin(theta);
+        Vec3   bottomOffset =
+            t * (bottomRadius * std::cos(theta)) + b * bottomRadius * std::sin(theta);
+        ids.emplace_back(
+            line(dim, topCenter + lastTopOffset, topCenter + topOffset, color, thickness)
+        );
+        ids.emplace_back(
+            line(dim, topCenter + topOffset, bottomCenter + bottomOffset, color, thickness)
+        );
+        ids.emplace_back(line(
+            dim,
+            bottomCenter + lastBottomOffset,
+            bottomCenter + bottomOffset,
+            color,
+            thickness
+        ));
+        lastTopOffset    = topOffset;
+        lastBottomOffset = bottomOffset;
+    }
+    return merge(ids);
 }
 } // namespace bsci

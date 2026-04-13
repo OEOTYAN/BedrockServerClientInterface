@@ -1,5 +1,3 @@
-#include "BedrockServerClientInterface.h"
-
 #ifdef TEST
 #include "bsci/GeometryGroup.h"
 #include "ll/api/command/CommandHandle.h"
@@ -33,7 +31,7 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 pos = self["pos"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -56,12 +54,12 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 begin = self["begin"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
             Vec3 end = self["end"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -81,12 +79,12 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 begin = self["begin"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
             Vec3 end = self["end"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -106,34 +104,13 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 center = self["center"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
             auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
             DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
             gids.emplace_back(geo->circle(dim, center, {0, 1, 0}, radius));
-            output.success("draw circle");
-        });
-
-    cmd.runtimeOverload()
-        .text("circle_with_thick")
-        .required("dim", ll::command::ParamKind::Dimension)
-        .required("center", ll::command::ParamKind::Vec3)
-        .required("radius", ll::command::ParamKind::Float)
-        .execute([&geo, &gids](
-                     CommandOrigin const&               origin,
-                     CommandOutput&                     output,
-                     ll::command::RuntimeCommand const& self
-                 ) {
-            Vec3 center = self["center"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
-                origin,
-                Vec3::ZERO()
-            );
-            auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
-            gids.emplace_back(geo->circle(dim, center, {0, 1, 0}, radius, mce::Color::WHITE(), 1));
             output.success("draw circle");
         });
 
@@ -149,13 +126,13 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 topCenter = self["topCenter"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
             Vec3 bottomCenter =
                 self["bottomCenter"].get<ll::command::ParamKind::Vec3>().getPosition(
-                    CommandVersion::CurrentVersion(),
+                    static_cast<int>(CurrentCmdVersion::Latest),
                     origin,
                     Vec3::ZERO()
                 );
@@ -176,7 +153,7 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 center = self["center"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -205,7 +182,7 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 offset = self["offset"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -225,7 +202,7 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 offset = self["offset"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -234,48 +211,6 @@ void registerTestCommand(
             }
 
             output.success("clear all");
-        });
-
-    cmd.runtimeOverload()
-        .text("circle2")
-        .required("dim", ll::command::ParamKind::Dimension)
-        .required("center", ll::command::ParamKind::Vec3)
-        .required("radius", ll::command::ParamKind::Float)
-        .execute([&geo, &gids](
-                     CommandOrigin const&               origin,
-                     CommandOutput&                     output,
-                     ll::command::RuntimeCommand const& self
-                 ) {
-            Vec3 center = self["center"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
-                origin,
-                Vec3::ZERO()
-            );
-            auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
-            gids.emplace_back(geo->circle2(dim, center, {0, 1, 0}, radius, mce::Color::WHITE()));
-            output.success("draw circle");
-        });
-
-    cmd.runtimeOverload()
-        .text("sphere2")
-        .required("dim", ll::command::ParamKind::Dimension)
-        .required("center", ll::command::ParamKind::Vec3)
-        .required("radius", ll::command::ParamKind::Float)
-        .execute([&geo, &gids](
-                     CommandOrigin const&               origin,
-                     CommandOutput&                     output,
-                     ll::command::RuntimeCommand const& self
-                 ) {
-            Vec3 center = self["center"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
-                origin,
-                Vec3::ZERO()
-            );
-            auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
-            gids.emplace_back(geo->sphere2(dim, center, radius));
-            output.success("draw sphere");
         });
 
     cmd.runtimeOverload()
@@ -289,12 +224,12 @@ void registerTestCommand(
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 begin = self["begin"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
             Vec3 end = self["end"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
@@ -308,20 +243,53 @@ void registerTestCommand(
         .required("dim", ll::command::ParamKind::Dimension)
         .required("pos", ll::command::ParamKind::Vec3)
         .required("text", ll::command::ParamKind::String)
+        .required("scale", ll::command::ParamKind::Float)
         .execute([&geo, &gids](
                      CommandOrigin const&               origin,
                      CommandOutput&                     output,
                      ll::command::RuntimeCommand const& self
                  ) {
             Vec3 pos = self["pos"].get<ll::command::ParamKind::Vec3>().getPosition(
-                CommandVersion::CurrentVersion(),
+                static_cast<int>(CurrentCmdVersion::Latest),
                 origin,
                 Vec3::ZERO()
             );
-            std::string   text = self["text"].get<ll::command::ParamKind::String>();
-            DimensionType dim  = self["dim"].get<ll::command::ParamKind::Dimension>().id;
-            gids.emplace_back(geo->text(dim, pos + Vec3{1, 1, 1}, text, mce::Color::WHITE(), 30));
+            std::string   text  = self["text"].get<ll::command::ParamKind::String>();
+            DimensionType dim   = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            float         scale = self["scale"].get<ll::command::ParamKind::Float>();
+            gids.emplace_back(geo->text(dim, pos + Vec3{1, 1, 1}, text, mce::Color::WHITE(), scale)
+            );
             output.success("draw text");
+        });
+
+    cmd.runtimeOverload()
+        .text("cone")
+        .required("dim", ll::command::ParamKind::Dimension)
+        .required("topCenter", ll::command::ParamKind::Vec3)
+        .required("bottomCenter", ll::command::ParamKind::Vec3)
+        .required("topRadius", ll::command::ParamKind::Float)
+        .required("bottomRadius", ll::command::ParamKind::Float)
+        .execute([&geo, &gids](
+                     CommandOrigin const&               origin,
+                     CommandOutput&                     output,
+                     ll::command::RuntimeCommand const& self
+                 ) {
+            Vec3 topCenter = self["topCenter"].get<ll::command::ParamKind::Vec3>().getPosition(
+                static_cast<int>(CurrentCmdVersion::Latest),
+                origin,
+                Vec3::ZERO()
+            );
+            Vec3 bottomCenter =
+                self["bottomCenter"].get<ll::command::ParamKind::Vec3>().getPosition(
+                    static_cast<int>(CurrentCmdVersion::Latest),
+                    origin,
+                    Vec3::ZERO()
+                );
+            auto          topRadius    = self["topRadius"].get<ll::command::ParamKind::Float>();
+            auto          bottomRadius = self["bottomRadius"].get<ll::command::ParamKind::Float>();
+            DimensionType dim          = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            gids.emplace_back(geo->cone(dim, topCenter, bottomCenter, topRadius, bottomRadius));
+            output.success("draw cylinder");
         });
 }
 } // namespace bsci::test
