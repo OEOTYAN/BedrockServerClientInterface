@@ -2,12 +2,14 @@
 #include "BedrockServerClientInterface.h"
 
 #include <ll/api/base/Containers.h>
-#include <ll/api/memory/Hook.h>
-#include <ll/api/memory/Memory.h>
+#include <ll/api/event/EventBus.h>
+#include <ll/api/event/Listener.h>
+#include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/service/GamingStatus.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
 
+#include <atomic>
 #include <mc/deps/core/string/HashedString.h>
 #include <mc/deps/core/threading/Threading.h>
 #include <mc/legacy/ActorUniqueID.h>
@@ -23,7 +25,6 @@
 #include <mc/util/MolangVariableMap.h>
 #include <mc/util/MolangVariableSettings.h>
 #include <mc/util/Timer.h>
-#include <mc/world/Minecraft.h>
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
 
@@ -69,8 +70,10 @@ static void addDirection(MolangVariableMap& var, Vec3 const& dir) {
     );
 }
 struct ParticleSpawner::Impl {
-    struct Hook;
-    size_t id{};
+    std::atomic_bool       active{true};
+    size_t                 tickId{};
+    ll::event::ListenerPtr listener;
+    size_t                 id{};
     ll::ConcurrentDenseMap<
         GeoId,
         std::unique_ptr<SpawnParticleEffectPacket>,
@@ -89,60 +92,42 @@ struct ParticleSpawner::Impl {
             pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
         });
     }
+
+    void tick() {
+        if (!active.load(std::memory_order_acquire)) {
+            return;
+        }
+        auto const tablePerTick =
+            BedrockServerClientInterface::getInstance().getConfig().particle.tablePerTick;
+        auto begin = (tickId % (64 / tablePerTick)) * tablePerTick;
+        for (size_t i = 0; i < tablePerTick; i++) {
+            geoPackets.with_submap(begin + i, [&](auto& map) {
+                for (auto& [id, pkt] : map) {
+                    if (pkt) {
+                        pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId);
+                    }
+                }
+            });
+        }
+        ++tickId;
+    }
 };
 
-static std::recursive_mutex          listMutex;
-static std::vector<ParticleSpawner*> list;
-static std::atomic_bool              hasInstance{false};
-static size_t                        listtick;
-
-LL_TYPE_INSTANCE_HOOK(
-    ParticleSpawner::Impl::Hook,
-    HookPriority::Normal,
-    Minecraft,
-    &Minecraft::update,
-    bool
-) {
-    if (mSimTimer.mTicks && ll::getGamingStatus() == ll::GamingStatus::Running) {
-        if (hasInstance) {
-            std::lock_guard l{listMutex};
-            listtick++;
-            for (auto s : list) {
-                s->tick({listtick});
-            }
-        }
-    }
-    return origin();
-}
-
-void ParticleSpawner::tick(Tick const& tick) {
-    auto const tablePerTick =
-        BedrockServerClientInterface::getInstance().getConfig().particle.tablePerTick;
-    auto begin = (tick.tickID % (64 / tablePerTick)) * tablePerTick;
-    for (size_t i = 0; i < tablePerTick; i++) {
-        impl->geoPackets.with_submap(begin + i, [&](auto& map) {
-            for (auto& [id, pkt] : map) {
-                if (pkt)
-                    pkt->sendTo(*pkt->mPos,
-                                pkt->mVanillaDimensionId); // tick must in server thread
-            }
-        });
-    }
-}
-
-ParticleSpawner::ParticleSpawner() : impl(std::make_unique<Impl>()) {
-    static ll::memory::HookRegistrar<ParticleSpawner::Impl::Hook> reg;
-    std::lock_guard                                               l{listMutex};
-    hasInstance = true;
-    impl->id    = list.size();
-    list.push_back(this);
+ParticleSpawner::ParticleSpawner() : impl(std::make_shared<Impl>()) {
+    impl->listener =
+        ll::event::EventBus::getInstance().emplaceListener<ll::event::world::ServerLevelTickEvent>(
+            [impl = impl](ll::event::world::ServerLevelTickEvent&) { impl->tick(); }
+        );
 }
 ParticleSpawner::~ParticleSpawner() {
-    std::lock_guard l{listMutex};
-    list.back()->impl->id = impl->id;
-    std::swap(list[impl->id], list.back());
-    list.pop_back();
-    hasInstance = !list.empty();
+    if (impl) {
+        impl->active.store(false, std::memory_order_release);
+        if (impl->listener) {
+            ll::event::EventBus::getInstance()
+                .removeListener<ll::event::world::ServerLevelTickEvent>(impl->listener);
+            impl->listener.reset();
+        }
+    }
 }
 
 GeometryGroup::GeoId ParticleSpawner::particle(

@@ -5,12 +5,11 @@
 #include <memory>
 
 #include <mc/util/MolangVariableMap.h>
-#include <mc/world/level/Tick.h>
 
 namespace bsci {
 class ParticleSpawner : public GeometryGroup {
     struct Impl;
-    std::unique_ptr<Impl> impl;
+    std::shared_ptr<Impl> impl;
 
     GeoId particle(
         DimensionType      dim,
@@ -18,8 +17,6 @@ class ParticleSpawner : public GeometryGroup {
         std::string const& name,
         MolangVariableMap  var = {}
     ) const;
-
-    void tick(Tick const& tick);
 
 public:
     BSCI_API ParticleSpawner();

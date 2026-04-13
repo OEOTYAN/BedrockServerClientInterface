@@ -1,26 +1,84 @@
 {
-    "format_version": 2,
+    "format_version": 3,
+    "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
     "tooth": "github.com/OEOTYAN/BedrockServerClientInterface",
     "version": "0.2.0",
     "info": {
         "name": "BedrockServerClientInterface",
         "description": "wow",
-        "author": "OEOTYAN",
         "tags": [
-            "levilamina",
-            "mod"
+            "platform:levilamina",
+            "type:mod"
         ]
     },
-    "asset_url": "https://github.com/OEOTYAN/BedrockServerClientInterface/releases/download/v$(version)/BedrockServerClientInterface-windows-x64.zip",
-    "prerequisites": {
-        "github.com/LiteLDev/LeviLamina": ">=1.9.0"
-    },
-    "files": {
-        "place": [
-            {
-                "src": "BedrockServerClientInterface/*",
-                "dest": "plugins/BedrockServerClientInterface/"
+    "variants": [
+        {
+            "label": "",
+            "platform": "win-x64",
+            "dependencies": {
+                "github.com/LiteLDev/LeviLamina": ">=1.9.0"
+            },
+            "assets": [
+                {
+                    "type": "zip",
+                    "urls": [
+                        "https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-server-windows-x64.zip"
+                    ],
+                    "placements": [
+                        {
+                            "type": "dir",
+                            "src": "BedrockServerClientInterface/",
+                            "dest": "plugins/BedrockServerClientInterface/"
+                        }
+                    ]
+                }
+            ],
+            "preserve_files": [],
+            "remove_files": [],
+            "scripts": {
+                "pre_install": [],
+                "install": [],
+                "post_install": [],
+                "pre_pack": [],
+                "post_pack": [],
+                "pre_uninstall": [],
+                "uninstall": [],
+                "post_uninstall": []
             }
-        ]
-    }
+        },
+        {
+            "label": "client",
+            "platform": "win-x64",
+            "dependencies": {
+                "github.com/LiteLDev/LeviLamina#client": ">=1.9.0"
+            },
+            "assets": [
+                {
+                    "type": "zip",
+                    "urls": [
+                        "https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-client-windows-x64.zip"
+                    ],
+                    "placements": [
+                        {
+                            "type": "dir",
+                            "src": "BedrockServerClientInterface/",
+                            "dest": "mods/BedrockServerClientInterface/"
+                        }
+                    ]
+                }
+            ],
+            "preserve_files": [],
+            "remove_files": [],
+            "scripts": {
+                "pre_install": [],
+                "install": [],
+                "post_install": [],
+                "pre_pack": [],
+                "post_pack": [],
+                "pre_uninstall": [],
+                "uninstall": [],
+                "post_uninstall": []
+            }
+        }
+    ]
 }
