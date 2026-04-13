@@ -1,7 +1,5 @@
 #pragma once
 
-#include "BedrockServerClientInterface.h"
-
 #ifdef TEST
 #include "bsci/GeometryGroup.h"
 #include <memory>

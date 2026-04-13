@@ -101,6 +101,16 @@ public:
         mce::Color const&    color = mce::Color::WHITE(),
         std::optional<float> scale = {}
     );
+
+    BSCI_API virtual GeoId cone(
+        DimensionType        dim,
+        Vec3 const&          topCenter,
+        Vec3 const&          bottomCenter,
+        float                topRadius,
+        float                bottomRadius,
+        mce::Color const&    color     = mce::Color::WHITE(),
+        std::optional<float> thickness = {}
+    );
 };
 } // namespace bsci
 
