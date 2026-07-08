@@ -28,8 +28,10 @@
 #include <mc/world/level/BlockPos.h>
 #include <mc/world/level/dimension/Dimension.h>
 
-
-MolangScriptArg::MolangScriptArg() = default;
+MolangMemberArray::MolangMemberArray()                                                 = default;
+MolangMemberArray::MolangMemberArray(MolangMemberArray const&)                         = default;
+SpawnParticleEffectPacket::SpawnParticleEffectPacket(SpawnParticleEffectPacket const&) = default;
+// MolangScriptArg::MolangScriptArg() = default;
 // MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
 //     mMapFromVariableIndexToVariableArrayOffset =
 //     rhs.mMapFromVariableIndexToVariableArrayOffset; mVariables = {}; for (auto& ptr :
