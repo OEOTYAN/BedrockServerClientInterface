@@ -18,14 +18,30 @@ end
 target("BedrockServerClientInterface")
     add_rules("@levibuildscript/linkrule")
     add_rules("@levibuildscript/modpacker")
-    add_cxflags( "/EHa", "/utf-8", "/W4", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
-    add_defines( "_HAS_CXX23=1", "NOMINMAX", "UNICODE", "BSCI_EXPORTS")
+    if is_plat("windows") then
+        add_defines( "_HAS_CXX23=1", "NOMINMAX", "UNICODE", "BSCI_EXPORTS")
+        set_exceptions("none") -- To avoid conflicts with /EHa.
+        add_cxflags( "/EHa", "/utf-8", "/W4", "/w44265", "/w44289", "/w44296", "/w45263", "/w44738", "/w45204")
+        add_cxflags(
+            "/EHs",
+            "-Wno-microsoft-cast",
+            "-Wno-invalid-offsetof",
+            "-Wno-c++2b-extensions",
+            "-Wno-microsoft-include",
+            "-Wno-overloaded-virtual",
+            "-Wno-ignored-qualifiers",
+            "-Wno-missing-field-initializers",
+            "-Wno-potentially-evaluated-expression",
+            "-Wno-pragma-system-header-outside-header",
+            {tools = {"clang_cl"}}
+        )
+        set_toolchains("clang-cl")
+    end
     -- add_defines("TEST")
     add_files("src/**.cpp")
     add_headerfiles("src/(bsci/**.h)")
     add_includedirs("src")
     add_packages("levilamina")
-    set_exceptions("none")
     set_kind("shared")
     set_languages("c++20")
     set_symbols("debug")

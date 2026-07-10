@@ -29,7 +29,10 @@
 #include <mc/world/level/dimension/Dimension.h>
 
 
-MolangScriptArg::MolangScriptArg() = default;
+MolangMemberArray::MolangMemberArray()                                                 = default;
+MolangMemberArray::MolangMemberArray(MolangMemberArray const&)                         = default;
+SpawnParticleEffectPacket::SpawnParticleEffectPacket(SpawnParticleEffectPacket const&) = default;
+// MolangScriptArg::MolangScriptArg() = default;
 // MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
 //     mMapFromVariableIndexToVariableArrayOffset =
 //     rhs.mMapFromVariableIndexToVariableArrayOffset; mVariables = {}; for (auto& ptr :
@@ -211,8 +214,14 @@ GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
     std::vector<GeoId> res;
     res.reserve(ids.size());
     for (auto const& sid : ids) {
-        if (!impl->geoGroup.erase_if(sid, [this, &res](auto&& iter) {
-                res.append_range(std::move(iter.second));
+        if (!impl->geoGroup.erase_if(sid, [&res](auto&& iter) {
+                auto& source = iter.second;
+                res.reserve(res.size() + source.size());
+                res.insert(
+                    res.end(),
+                    std::make_move_iterator(source.begin()),
+                    std::make_move_iterator(source.end())
+                );
                 return true;
             })) {
             res.push_back(sid);

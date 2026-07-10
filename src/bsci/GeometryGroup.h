@@ -4,7 +4,7 @@
 #include "mc/world/phys/AABB.h"
 
 #include <mc/deps/core/math/Color.h>
-#include <mc/deps/core/utility/AutomaticID.h>
+#include <mc/world/level/dimension/DimensionType.h>
 
 namespace bsci {
 class GeometryGroup {

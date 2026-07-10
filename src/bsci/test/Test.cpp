@@ -35,7 +35,7 @@ void registerTestCommand(
                 origin,
                 Vec3::ZERO()
             );
-            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             output.success("a");
             auto gid = geo->point(dim, pos);
             output.success("a");
@@ -63,7 +63,7 @@ void registerTestCommand(
                 origin,
                 Vec3::ZERO()
             );
-            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->line(dim, begin, end));
             output.success("draw line");
         });
@@ -88,7 +88,7 @@ void registerTestCommand(
                 origin,
                 Vec3::ZERO()
             );
-            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->box(dim, AABB(begin, end)));
             output.success("draw box");
         });
@@ -109,7 +109,7 @@ void registerTestCommand(
                 Vec3::ZERO()
             );
             auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->circle(dim, center, {0, 1, 0}, radius));
             output.success("draw circle");
         });
@@ -137,7 +137,7 @@ void registerTestCommand(
                     Vec3::ZERO()
                 );
             auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->cylinder(dim, topCenter, bottomCenter, radius));
             output.success("draw cylinder");
         });
@@ -158,7 +158,7 @@ void registerTestCommand(
                 Vec3::ZERO()
             );
             auto          radius = self["radius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim    = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->sphere(dim, center, radius));
             output.success("draw sphere");
         });
@@ -233,7 +233,7 @@ void registerTestCommand(
                 origin,
                 Vec3::ZERO()
             );
-            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->arrow(dim, begin, end));
             output.success("draw arrow");
         });
@@ -255,7 +255,7 @@ void registerTestCommand(
                 Vec3::ZERO()
             );
             std::string   text  = self["text"].get<ll::command::ParamKind::String>();
-            DimensionType dim   = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim   = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             float         scale = self["scale"].get<ll::command::ParamKind::Float>();
             gids.emplace_back(geo->text(dim, pos + Vec3{1, 1, 1}, text, mce::Color::WHITE(), scale)
             );
@@ -287,7 +287,7 @@ void registerTestCommand(
                 );
             auto          topRadius    = self["topRadius"].get<ll::command::ParamKind::Float>();
             auto          bottomRadius = self["bottomRadius"].get<ll::command::ParamKind::Float>();
-            DimensionType dim          = self["dim"].get<ll::command::ParamKind::Dimension>().id;
+            DimensionType dim          = self["dim"].get<ll::command::ParamKind::Dimension>().mValue;
             gids.emplace_back(geo->cone(dim, topCenter, bottomCenter, topRadius, bottomRadius));
             output.success("draw cylinder");
         });

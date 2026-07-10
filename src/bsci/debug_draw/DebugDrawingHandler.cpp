@@ -17,19 +17,11 @@
 #include <mc/network/LoopbackPacketSender.h>
 #include <mc/network/MinecraftPacketIds.h>
 #include <mc/network/NetEventCallback.h>
-#include <mc/network/packet/DebugDrawerPacket.h>
-#include <mc/network/packet/DebugDrawerPacketPayload.h>
 #include <mc/network/packet/LevelChunkPacket.h>
-#include <mc/network/packet/ShapeDataPayload.h>
+#include <mc/network/packet/PrimitiveShapeDataPayload.h>
+#include <mc/network/packet/PrimitiveShapesPacket.h>
+#include <mc/network/packet/PrimitiveShapesPacketPayload.h>
 #include <mc/world/level/ChunkPos.h>
-
-
-TextDataPayload::TextDataPayload() = default;
-TextDataPayload::TextDataPayload(TextDataPayload const& cp) { mText = cp.mText; };
-// ShapeDataPayload::ShapeDataPayload() = default;
-ShapeDataPayload::ShapeDataPayload() { mNetworkId = 0; };
-// DebugDrawerPacketPayload::DebugDrawerPacketPayload()                                = default;
-// DebugDrawerPacketPayload::DebugDrawerPacketPayload(DebugDrawerPacketPayload const&) = default;
 
 namespace bsci {
 static std::atomic<uint64_t> nextId_{UINT64_MAX};
@@ -38,10 +30,10 @@ constexpr size_t shapeDisplayRadius = 48;
 
 class DebugDrawingHandler::Impl {
 public:
-    using PacketPair = std::pair<GeoId, std::vector<std::weak_ptr<DebugDrawerPacket>>>;
+    using PacketPair = std::pair<GeoId, std::vector<std::weak_ptr<PrimitiveShapesPacket>>>;
     struct Hook;
     size_t id{};
-    ll::ConcurrentDenseMap<GeoId, std::vector<std::shared_ptr<DebugDrawerPacket>>>
+    ll::ConcurrentDenseMap<GeoId, std::vector<std::shared_ptr<PrimitiveShapesPacket>>>
         geoPackets; // bool = true 表示启用ParticleSpawner
     ll::ConcurrentDenseMap<std::pair<ChunkPos, int>, std::vector<PacketPair>>
         chunkPackets; // 不应包含使用ParticleSpawner的GeoId
@@ -57,9 +49,9 @@ public:
     }
 
     void
-    addPacket(GeoId geoId, std::shared_ptr<DebugDrawerPacket>& packet, int dimId, Vec3 const& pos) {
+    addPacket(GeoId geoId, std::shared_ptr<PrimitiveShapesPacket>& packet, int dimId, Vec3 const& pos) {
         if (packet) {
-            geoPackets.emplace(geoId, std::vector<std::shared_ptr<DebugDrawerPacket>>{packet});
+            geoPackets.emplace(geoId, std::vector<std::shared_ptr<PrimitiveShapesPacket>>{packet});
             auto chunkPos         = ChunkPos(pos);
             auto key              = std::make_pair(chunkPos, dimId);
             auto [iter, inserted] = chunkPackets.try_emplace(key);
@@ -67,7 +59,7 @@ public:
             if (inserted) {
                 iter->second.emplace_back(
                     geoId,
-                    std::vector<std::weak_ptr<DebugDrawerPacket>>{packet}
+                    std::vector<std::weak_ptr<PrimitiveShapesPacket>>{packet}
                 );
             } else {
                 auto it = std::lower_bound(
@@ -77,13 +69,13 @@ public:
                     compareByGeoId
                 );
                 iter->second
-                    .emplace(it, geoId, std::vector<std::weak_ptr<DebugDrawerPacket>>{packet});
+                    .emplace(it, geoId, std::vector<std::weak_ptr<PrimitiveShapesPacket>>{packet});
             }
         }
         // else {
         //     geoGroup.emplace(
         //         geoId,
-        //         std::make_pair(std::vector<std::shared_ptr<DebugDrawerPacket>>{}, true)
+        //         std::make_pair(std::vector<std::shared_ptr<PrimitiveShapesPacket>>{}, true)
         //     );
         // }
     }
@@ -110,7 +102,7 @@ LL_TYPE_INSTANCE_HOOK(
         const auto& dimId            = (int)*levelChunkPacket.mDimensionId;
         auto        key              = std::make_pair(chunkPos, dimId);
 
-        std::vector<std::shared_ptr<DebugDrawerPacket>> _chunkPackets;
+        std::vector<std::shared_ptr<PrimitiveShapesPacket>> _chunkPackets;
 
         {
             std::lock_guard l{listMutex};
@@ -167,11 +159,11 @@ GeometryGroup::GeoId DebugDrawingHandler::line(
     Vec3   offset = end - begin;
     double len    = offset.length();
     if (len <= shapeDisplayRadius + 0.5) { // 防止浮点误差导致的无限递归
-        auto packet = std::make_shared<DebugDrawerPacket>();
+        auto packet = std::make_shared<PrimitiveShapesPacket>();
         packet->setSerializationMode(SerializationMode::CerealOnly);
-        ShapeDataPayload shape;
+        PrimitiveShapeDataPayload shape;
         shape.mNetworkId        = nextId_.fetch_sub(1);
-        shape.mShapeType        = ScriptModuleDebugUtilities::ScriptDebugShapeType::Line;
+        shape.mShapeType        = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Line;
         shape.mLocation         = begin;
         shape.mColor            = color;
         shape.mDimensionId      = dim;
@@ -212,11 +204,11 @@ GeometryGroup::GeoId DebugDrawingHandler::box(
     if ((box.max - box.min).lengthSqr() >= shapeDisplayRadius * shapeDisplayRadius)
         return Base::box(dim, box, color, thickness);
 
-    auto packet = std::make_shared<DebugDrawerPacket>();
+    auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
-    ShapeDataPayload shape;
+    PrimitiveShapeDataPayload shape;
     shape.mNetworkId        = nextId_.fetch_sub(1);
-    shape.mShapeType        = ScriptModuleDebugUtilities::ScriptDebugShapeType::Box;
+    shape.mShapeType        = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Box;
     shape.mLocation         = (box.min + box.max) / 2;
     shape.mColor            = color;
     shape.mDimensionId      = dim;
@@ -246,11 +238,11 @@ GeometryGroup::GeoId DebugDrawingHandler::circle(
         return Base::circle(dim, center, normal, radius, color, thickness);
     }
 
-    auto packet = std::make_shared<DebugDrawerPacket>();
+    auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
-    ShapeDataPayload shape;
+    PrimitiveShapeDataPayload shape;
     shape.mNetworkId   = nextId_.fetch_sub(1);
-    shape.mShapeType   = ScriptModuleDebugUtilities::ScriptDebugShapeType::Circle;
+    shape.mShapeType   = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Circle;
     shape.mRotation    = normal;
     shape.mLocation    = center;
     shape.mScale       = radius;
@@ -280,11 +272,11 @@ GeometryGroup::GeoId DebugDrawingHandler::sphere(
     }
 
 
-    auto packet = std::make_shared<DebugDrawerPacket>();
+    auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
-    ShapeDataPayload shape;
+    PrimitiveShapeDataPayload shape;
     shape.mNetworkId   = nextId_.fetch_sub(1);
-    shape.mShapeType   = ScriptModuleDebugUtilities::ScriptDebugShapeType::Sphere;
+    shape.mShapeType   = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Sphere;
     shape.mLocation    = center;
     shape.mScale       = radius;
     shape.mColor       = color;
@@ -315,12 +307,12 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
     Vec3   offset = end - begin;
     double len    = offset.length();
     if (len <= shapeDisplayRadius + 0.5) { // 防止浮点误差导致的无限递归
-        auto packet = std::make_shared<DebugDrawerPacket>();
+        auto packet = std::make_shared<PrimitiveShapesPacket>();
         packet->setSerializationMode(SerializationMode::CerealOnly);
         auto const&      config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
-        ShapeDataPayload shape;
+        PrimitiveShapeDataPayload shape;
         shape.mNetworkId        = nextId_.fetch_sub(1);
-        shape.mShapeType        = ScriptModuleDebugUtilities::ScriptDebugShapeType::Arrow;
+        shape.mShapeType        = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Arrow;
         shape.mLocation         = begin;
         shape.mColor            = color;
         shape.mDimensionId      = dim;
@@ -362,11 +354,11 @@ GeometryGroup::GeoId DebugDrawingHandler::text(
     mce::Color const&    color,
     std::optional<float> scale
 ) {
-    auto packet = std::make_shared<DebugDrawerPacket>();
+    auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
-    ShapeDataPayload shape;
+    PrimitiveShapeDataPayload shape;
     shape.mNetworkId   = nextId_.fetch_sub(1);
-    shape.mShapeType   = ScriptModuleDebugUtilities::ScriptDebugShapeType::Text;
+    shape.mShapeType   = ::ScriptModuleMinecraft::ScriptPrimitiveShapeType::Text;
     shape.mLocation    = pos;
     shape.mScale       = scale;
     shape.mColor       = color;
@@ -388,7 +380,7 @@ bool DebugDrawingHandler::remove(GeoId id) {
     if (id.value == 0) {
         return false;
     }
-    std::vector<std::shared_ptr<DebugDrawerPacket>> removePackets;
+    std::vector<std::shared_ptr<PrimitiveShapesPacket>> removePackets;
     impl->geoPackets.erase_if(id, [this, id, &removePackets](auto&& iter) {
         for (auto& packet : iter.second) {
             if (packet && !packet->mShapes->empty() && (*packet->mShapes)[0].mLocation->has_value()
@@ -430,7 +422,7 @@ GeometryGroup::GeoId DebugDrawingHandler::merge(std::span<GeoId> ids) {
     }
     ll::ConcurrentDenseMap<std::pair<ChunkPos, int>,
                            std::vector<GeoId>>      temMap;     // 用来处理包的合并
-    std::vector<std::shared_ptr<DebugDrawerPacket>> newPackets; // 合并后的包队列
+    std::vector<std::shared_ptr<PrimitiveShapesPacket>> newPackets; // 合并后的包队列
 
     // 移出旧id的geoPackets
     for (auto& id : ids) {
@@ -466,7 +458,7 @@ GeometryGroup::GeoId DebugDrawingHandler::merge(std::span<GeoId> ids) {
     for (auto& [key, data] : temMap) {
         impl->chunkPackets.modify_if(key, [this, &data, &newId](auto&& iter) {
             // 合并包
-            std::vector<std::weak_ptr<DebugDrawerPacket>> pkts;
+            std::vector<std::weak_ptr<PrimitiveShapesPacket>> pkts;
             for (auto& id : data) {
                 auto it = std::lower_bound(
                     iter.second.begin(),
@@ -484,7 +476,7 @@ GeometryGroup::GeoId DebugDrawingHandler::merge(std::span<GeoId> ids) {
                 }
             }
             // 添加新的包
-            std::pair<GeoId, std::vector<std::weak_ptr<DebugDrawerPacket>>> newPair =
+            std::pair<GeoId, std::vector<std::weak_ptr<PrimitiveShapesPacket>>> newPair =
                 std::make_pair(newId, std::move(pkts));
             auto it = std::lower_bound(
                 iter.second.begin(),
@@ -508,7 +500,7 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
     return impl->geoPackets.modify_if(id, [this, id, v](auto&& iter) {
         ll::ConcurrentDenseMap<
             std::pair<ChunkPos, int>,
-            std::vector<std::weak_ptr<DebugDrawerPacket>>>
+            std::vector<std::weak_ptr<PrimitiveShapesPacket>>>
             temMap; // 用来处理shape跨区块
 
         std::erase_if(iter.second, [&temMap, &v](auto&& packet) {
@@ -527,7 +519,8 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
                         if (std::holds_alternative<ArrowDataPayload>(*shape.mExtraDataPayload)) {
                             std::get<ArrowDataPayload>(*shape.mExtraDataPayload)
                                 .mEndLocation->value() += v;
-                        } else if (std::holds_alternative<LineDataPayload>(*shape.mExtraDataPayload
+                        } else if (std::holds_alternative<LineDataPayload>(
+                                       *shape.mExtraDataPayload
                                    )) {
                             *std::get<LineDataPayload>(*shape.mExtraDataPayload).mEndLocation += v;
                         }
@@ -535,7 +528,7 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
                 }
                 auto newChunkPos    = ChunkPos((*packet->mShapes)[0].mLocation->value());
                 auto [it, inserted] = temMap.try_emplace(std::make_pair(newChunkPos, dimId));
-                it->second.emplace_back(std::weak_ptr<DebugDrawerPacket>(packet));
+                it->second.emplace_back(std::weak_ptr<PrimitiveShapesPacket>(packet));
                 return false;
             }
             return true;

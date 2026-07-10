@@ -2,8 +2,11 @@
 
 
 #include <ll/api/Config.h>
+#include <ll/api/event/EventBus.h>
+#include <ll/api/event/command/ServerCommandRegisterEvent.h>
 #include <ll/api/mod/NativeMod.h>
 #include <ll/api/mod/RegisterHelper.h>
+#include <ll/api/service/Bedrock.h>
 #include <ll/api/utils/ErrorUtils.h>
 
 #ifdef TEST
@@ -17,12 +20,13 @@ struct BedrockServerClientInterface::Impl {
 #ifdef TEST
     std::unique_ptr<GeometryGroup>    geoTest;
     std::vector<GeometryGroup::GeoId> gids;
+    std::set<ll::event::ListenerPtr>  eventListeners;
 #endif
 };
 
 BedrockServerClientInterface::BedrockServerClientInterface()
-: self(*ll::mod::NativeMod::current()),
-  impl(std::make_unique<Impl>()) {}
+: impl(std::make_unique<Impl>()),
+  self(*ll::mod::NativeMod::current()) {}
 
 BedrockServerClientInterface::~BedrockServerClientInterface() = default;
 
@@ -60,6 +64,16 @@ bool BedrockServerClientInterface::load() {
     if (!loadConfig()) {
         return false;
     }
+#ifdef TEST
+    impl->eventListeners.emplace(
+        ll::event::EventBus::getInstance()
+            .emplaceListener<ll::event::command::ServerCommandRegisterEvent>([this](auto&&) {
+                getLogger().info("registering test command");
+                impl->geoTest = GeometryGroup::createDefault();
+                test::registerTestCommand(impl->geoTest, impl->gids);
+            })
+    );
+#endif
     return true;
 }
 
@@ -68,9 +82,13 @@ bool BedrockServerClientInterface::enable() {
         loadConfig();
     }
 #ifdef TEST
-    impl->geoTest = GeometryGroup::createDefault();
-    test::registerTestCommand(impl->geoTest, impl->gids);
-    std::thread([this] {
+#ifdef LL_PLAT_C
+    if (ll::service::getLevel()) {
+        impl->geoTest = GeometryGroup::createDefault();
+        test::registerTestCommand(impl->geoTest, impl->gids);
+    }
+#endif
+    std::thread([] {
         auto                 geo = bsci::GeometryGroup::createDefault();
         GeometryGroup::GeoId eee{};
         auto gid = geo->circle(0, BlockPos{0, 90, 0}.center(), Vec3{1, 1, 1}.normalize(), 8);
