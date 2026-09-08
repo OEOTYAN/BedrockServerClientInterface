@@ -29,9 +29,8 @@
 #include <mc/world/level/dimension/Dimension.h>
 
 
-MolangMemberArray::MolangMemberArray()                                                 = default;
-MolangMemberArray::MolangMemberArray(MolangMemberArray const&)                         = default;
-SpawnParticleEffectPacket::SpawnParticleEffectPacket(SpawnParticleEffectPacket const&) = default;
+// MolangMemberArray::MolangMemberArray() = default;
+MolangVariableMap::MolangVariableMap() = default;
 // MolangScriptArg::MolangScriptArg() = default;
 // MolangVariableMap::MolangVariableMap(MolangVariableMap const& rhs) {
 //     mMapFromVariableIndexToVariableArrayOffset =
