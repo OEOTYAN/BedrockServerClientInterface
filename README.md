@@ -44,6 +44,23 @@ int main() {
 
 ```
 
+### Target specific players
+
+Every drawing call accepts an optional `players` argument. Leave it empty (the default) to send
+to all relevant players, or pass a list of players to limit the update to them:
+
+```cpp
+std::vector<Player*> players{player};
+
+geo->box(0, BoundingBox{{0, 70, 0}, {10, 73, 6}}, mce::Color::PINK, {}, players);
+
+// A single player can also be passed directly:
+geo->point(0, BlockPos{0, 70, 0}.center(), mce::Color::RED, {}, {player});
+```
+
+The target list is remembered by the geometry, so later `shift` / `remove` updates are only sent to
+the same players.
+
 ## Contributing
 
 Ask questions by creating an issue.

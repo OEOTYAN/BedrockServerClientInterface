@@ -1,5 +1,6 @@
 #include "bsci/particle/ParticleSpawner.h"
 #include "BedrockServerClientInterface.h"
+#include "bsci/utils/Utils.h"
 
 #include <ll/api/base/Containers.h>
 #include <ll/api/event/EventBus.h>
@@ -14,6 +15,8 @@
 #include <mc/deps/core/threading/Threading.h>
 #include <mc/legacy/ActorUniqueID.h>
 #include <mc/network/packet/SpawnParticleEffectPacket.h>
+#include <mc/world/actor/player/Player.h>
+#include <mc/world/level/Level.h>
 #include <mc/platform/threading/AssignedThread.h>
 #include <mc/util/MolangMemberArray.h>
 #include <mc/util/MolangMemberVariable.h>
@@ -72,26 +75,55 @@ static void addDirection(MolangVariableMap& var, Vec3 const& dir) {
     );
 }
 struct ParticleSpawner::Impl {
+    struct Entry {
+        std::unique_ptr<SpawnParticleEffectPacket> packet;
+        std::vector<ActorUniqueID>                 players;
+    };
+
     std::atomic_bool       active{true};
     size_t                 tickId{};
     ll::event::ListenerPtr listener;
     size_t                 id{};
     ll::ConcurrentDenseMap<
         GeoId,
-        std::unique_ptr<SpawnParticleEffectPacket>,
+        Entry,
         ::phmap::priv::hash_default_hash<GeoId>,
         ::phmap::priv::hash_default_eq<GeoId>,
-        ::std::allocator<::std::pair<GeoId const, std::unique_ptr<SpawnParticleEffectPacket>>>,
+        ::std::allocator<::std::pair<GeoId const, Entry>>,
         6>
                                                       geoPackets;
     ll::ConcurrentDenseMap<GeoId, std::vector<GeoId>> geoGroup;
 
-    void sendParticleImmediately(SpawnParticleEffectPacket& pkt) {
+    static void
+    sendPacket(SpawnParticleEffectPacket const& packet, std::vector<ActorUniqueID> const& players) {
+        if (players.empty()) {
+            packet.sendTo(*packet.mPos, packet.mVanillaDimensionId);
+            return;
+        }
+
+        auto level = ll::service::getLevel();
+        if (!level) return;
+        auto dimension = level->getDimension(packet.mVanillaDimensionId).lock();
+        if (!dimension) return;
+
+        std::vector<Player*> targets;
+        targets.reserve(players.size());
+        for (auto const& id : players) {
+            if (auto* player = level->getPlayer(id)) targets.emplace_back(player);
+        }
+        if (targets.empty()) return;
+        sendToPlayerAt(*dimension, *packet.mPos, packet, targets);
+    }
+
+    void sendParticleImmediately(
+        SpawnParticleEffectPacket&        packet,
+        std::vector<ActorUniqueID> const& players
+    ) {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
             return;
         }
-        ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-            pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, players] {
+            Impl::sendPacket(packet, players);
         });
     }
 
@@ -104,9 +136,9 @@ struct ParticleSpawner::Impl {
         auto begin = (tickId % (64 / tablePerTick)) * tablePerTick;
         for (size_t i = 0; i < tablePerTick; i++) {
             geoPackets.with_submap(begin + i, [&](auto& map) {
-                for (auto& [id, pkt] : map) {
-                    if (pkt) {
-                        pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId);
+                for (auto& [id, entry] : map) {
+                    if (entry.packet) {
+                        Impl::sendPacket(*entry.packet, entry.players);
                     }
                 }
             });
@@ -133,26 +165,35 @@ ParticleSpawner::~ParticleSpawner() {
 }
 
 GeometryGroup::GeoId ParticleSpawner::particle(
-    DimensionType      dim,
-    Vec3 const&        pos,
-    std::string const& name,
-    MolangVariableMap  var
+    DimensionType               dim,
+    Vec3 const&                 pos,
+    std::string const&          name,
+    MolangVariableMap           var,
+    std::vector<Player*> const& players
 ) const {
     addTime(var);
     auto packet =
         std::make_unique<SpawnParticleEffectPacket>(pos, name, (uchar)dim, std::move(var));
-    impl->sendParticleImmediately(*packet);
+
+    std::vector<ActorUniqueID> targets;
+    targets.reserve(players.size());
+    for (auto* player : players) {
+        if (player) targets.emplace_back(player->getOrCreateUniqueID());
+    }
+
+    impl->sendParticleImmediately(*packet, targets);
     auto id = GeometryGroup::getNextGeoId();
-    impl->geoPackets.try_emplace(id, std::move(packet));
+    impl->geoPackets.try_emplace(id, Impl::Entry{std::move(packet), std::move(targets)});
     return id;
 }
 
 GeometryGroup::GeoId ParticleSpawner::line(
-    DimensionType        dim,
-    Vec3 const&          begin,
-    Vec3 const&          end,
-    mce::Color const&    color,
-    std::optional<float> thickness
+    DimensionType               dim,
+    Vec3 const&                 begin,
+    Vec3 const&                 end,
+    mce::Color const&           color,
+    std::optional<float>        thickness,
+    std::vector<Player*> const& players
 ) {
     if (begin == end) return GeoId::invalid();
     MolangVariableMap var;
@@ -169,15 +210,17 @@ GeometryGroup::GeoId ParticleSpawner::line(
         dim,
         (begin + end) * 0.5f,
         color.a == 1 ? "bsci:line" : "bsci:blend_line",
-        std::move(var)
+        std::move(var),
+        players
     );
 }
 
 GeometryGroup::GeoId ParticleSpawner::point(
-    DimensionType        dim,
-    Vec3 const&          pos,
-    mce::Color const&    color,
-    std::optional<float> radius
+    DimensionType               dim,
+    Vec3 const&                 pos,
+    mce::Color const&           color,
+    std::optional<float>        radius,
+    std::vector<Player*> const& players
 ) {
     MolangVariableMap var;
     addSize(
@@ -187,7 +230,13 @@ GeometryGroup::GeoId ParticleSpawner::point(
         )}
     );
     addTint(var, color);
-    return particle(dim, pos, color.a == 1 ? "bsci:point" : "bsci:blend_point", std::move(var));
+    return particle(
+        dim,
+        pos,
+        color.a == 1 ? "bsci:point" : "bsci:blend_point",
+        std::move(var),
+        players
+    );
 }
 
 bool ParticleSpawner::remove(GeoId id) {
@@ -234,14 +283,18 @@ bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
     if (!impl->geoGroup.modify_if(id, [this, &v](auto&& i) {
             for (auto& subId : i.second) {
                 impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {
-                    *iter.second->mPos += v;
-                    if (iter.second) impl->sendParticleImmediately(*iter.second);
+                    if (iter.second.packet) {
+                        *iter.second.packet->mPos += v;
+                        impl->sendParticleImmediately(*iter.second.packet, iter.second.players);
+                    }
                 });
             }
         })) {
         return impl->geoPackets.modify_if(id, [this, &v](auto&& iter) {
-            *iter.second->mPos += v;
-            if (iter.second) impl->sendParticleImmediately(*iter.second);
+            if (iter.second.packet) {
+                *iter.second.packet->mPos += v;
+                impl->sendParticleImmediately(*iter.second.packet, iter.second.players);
+            }
         });
     }
     return true;

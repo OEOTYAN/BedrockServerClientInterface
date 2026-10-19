@@ -3,8 +3,12 @@
 #include "bsci/Marcos.h"
 #include "mc/world/phys/AABB.h"
 
+#include <vector>
+
 #include <mc/deps/core/math/Color.h>
 #include <mc/world/level/dimension/DimensionType.h>
+
+class Player;
 
 namespace bsci {
 class GeometryGroup {
@@ -26,18 +30,20 @@ public:
     BSCI_API virtual ~GeometryGroup() = default;
 
     BSCI_API virtual GeoId point(
-        DimensionType        dim,
-        Vec3 const&          pos,
-        mce::Color const&    color  = mce::Color::WHITE(),
-        std::optional<float> radius = {}
+        DimensionType               dim,
+        Vec3 const&                 pos,
+        mce::Color const&           color   = mce::Color::WHITE(),
+        std::optional<float>        radius  = {},
+        std::vector<Player*> const& players = {}
     );
 
     virtual GeoId line(
-        DimensionType        dim,
-        Vec3 const&          begin,
-        Vec3 const&          end,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 begin,
+        Vec3 const&                 end,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     ) = 0;
 
     virtual bool remove(GeoId) = 0;
@@ -47,69 +53,77 @@ public:
     virtual bool shift(GeoId, Vec3 const&) = 0;
 
     BSCI_API virtual GeoId line(
-        DimensionType        dim,
-        std::span<Vec3>      dots,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        std::span<Vec3>             dots,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     );
 
     BSCI_API virtual GeoId
-    box(DimensionType        dim,
-        AABB const&          box,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {});
+    box(DimensionType               dim,
+        AABB const&                 box,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {});
 
     BSCI_API virtual GeoId circle(
-        DimensionType        dim,
-        Vec3 const&          center,
-        Vec3 const&          normal,
-        float                radius,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 center,
+        Vec3 const&                 normal,
+        float                       radius,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     );
 
     BSCI_API virtual GeoId cylinder(
-        DimensionType        dim,
-        Vec3 const&          topCenter,
-        Vec3 const&          bottomCenter,
-        float                radius,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 topCenter,
+        Vec3 const&                 bottomCenter,
+        float                       radius,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     );
 
     BSCI_API virtual GeoId sphere(
-        DimensionType        dim,
-        Vec3 const&          center,
-        float                radius,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 center,
+        float                       radius,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     );
 
     BSCI_API virtual GeoId arrow(
-        DimensionType        dim,
-        Vec3 const&          begin,
-        Vec3 const&          end,
-        mce::Color const&    color            = mce::Color::WHITE(),
-        std::optional<float> mArrowHeadLength = {},
-        std::optional<float> mArrowHeadRadius = {}
+        DimensionType               dim,
+        Vec3 const&                 begin,
+        Vec3 const&                 end,
+        mce::Color const&           color            = mce::Color::WHITE(),
+        std::optional<float>        mArrowHeadLength = {},
+        std::optional<float>        mArrowHeadRadius = {},
+        std::vector<Player*> const& players          = {}
     );
 
     BSCI_API virtual GeoId text(
-        DimensionType        dim,
-        Vec3 const&          pos,
-        std::string          text,
-        mce::Color const&    color = mce::Color::WHITE(),
-        std::optional<float> scale = {}
+        DimensionType               dim,
+        Vec3 const&                 pos,
+        std::string                 text,
+        mce::Color const&           color   = mce::Color::WHITE(),
+        std::optional<float>        scale   = {},
+        std::vector<Player*> const& players = {}
     );
 
     BSCI_API virtual GeoId cone(
-        DimensionType        dim,
-        Vec3 const&          topCenter,
-        Vec3 const&          bottomCenter,
-        float                topRadius,
-        float                bottomRadius,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 topCenter,
+        Vec3 const&                 bottomCenter,
+        float                       topRadius,
+        float                       bottomRadius,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     );
 };
 } // namespace bsci

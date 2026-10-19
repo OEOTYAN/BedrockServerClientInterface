@@ -12,10 +12,11 @@ class ParticleSpawner : public GeometryGroup {
     std::shared_ptr<Impl> impl;
 
     GeoId particle(
-        DimensionType      dim,
-        Vec3 const&        pos,
-        std::string const& name,
-        MolangVariableMap  var = {}
+        DimensionType               dim,
+        Vec3 const&                 pos,
+        std::string const&          name,
+        MolangVariableMap           var,
+        std::vector<Player*> const& players
     ) const;
 
 public:
@@ -24,18 +25,20 @@ public:
     ~ParticleSpawner() override;
 
     GeoId point(
-        DimensionType        dim,
-        Vec3 const&          pos,
-        mce::Color const&    color  = mce::Color::WHITE(),
-        std::optional<float> radius = {}
+        DimensionType               dim,
+        Vec3 const&                 pos,
+        mce::Color const&           color   = mce::Color::WHITE(),
+        std::optional<float>        radius  = {},
+        std::vector<Player*> const& players = {}
     ) override;
 
     GeoId line(
-        DimensionType        dim,
-        Vec3 const&          begin,
-        Vec3 const&          end,
-        mce::Color const&    color     = mce::Color::WHITE(),
-        std::optional<float> thickness = {}
+        DimensionType               dim,
+        Vec3 const&                 begin,
+        Vec3 const&                 end,
+        mce::Color const&           color     = mce::Color::WHITE(),
+        std::optional<float>        thickness = {},
+        std::vector<Player*> const& players   = {}
     ) override;
 
     bool remove(GeoId) override;

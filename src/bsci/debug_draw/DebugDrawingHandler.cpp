@@ -1,5 +1,6 @@
 #include "DebugDrawingHandler.h"
 #include "BedrockServerClientInterface.h"
+#include "bsci/utils/Utils.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -12,16 +13,21 @@
 
 #include <ll/api/base/Containers.h>
 #include <ll/api/memory/Hook.h>
+#include <ll/api/service/Bedrock.h>
 #include <ll/api/thread/ServerThreadExecutor.h>
 
+#include <mc/legacy/ActorUniqueID.h>
 #include <mc/network/LoopbackPacketSender.h>
 #include <mc/network/MinecraftPacketIds.h>
 #include <mc/network/NetEventCallback.h>
+#include <mc/network/NetworkIdentifierWithSubId.h>
 #include <mc/network/packet/LevelChunkPacket.h>
 #include <mc/network/packet/PrimitiveShapeDataPayload.h>
 #include <mc/network/packet/PrimitiveShapesPacket.h>
 #include <mc/network/packet/PrimitiveShapesPacketPayload.h>
+#include <mc/world/actor/player/Player.h>
 #include <mc/world/level/ChunkPos.h>
+#include <mc/world/level/Level.h>
 
 namespace bsci {
 static std::atomic<uint64_t> nextId_{UINT64_MAX};
@@ -31,14 +37,97 @@ constexpr size_t shapeDisplayRadius = 48;
 class DebugDrawingHandler::Impl {
 public:
     using PacketPair = std::pair<GeoId, std::vector<std::weak_ptr<PrimitiveShapesPacket>>>;
+
+    struct Targets {
+        std::vector<ActorUniqueID>              players;
+        std::vector<NetworkIdentifierWithSubId> clients;
+
+        [[nodiscard]] bool broadcast() const { return players.empty(); }
+    };
+
     struct Hook;
     size_t id{};
     ll::ConcurrentDenseMap<GeoId, std::vector<std::shared_ptr<PrimitiveShapesPacket>>>
         geoPackets; // bool = true 表示启用ParticleSpawner
     ll::ConcurrentDenseMap<std::pair<ChunkPos, int>, std::vector<PacketPair>>
         chunkPackets; // 不应包含使用ParticleSpawner的GeoId
+    ll::ConcurrentDenseMap<GeoId, Targets> targets;
 
 public:
+    static Targets makeTargets(std::vector<Player*> const& players) {
+        Targets result;
+        result.players.reserve(players.size());
+        result.clients.reserve(players.size());
+        for (auto* player : players) {
+            if (!player) continue;
+            result.players.emplace_back(player->getOrCreateUniqueID());
+            result.clients.emplace_back(NetworkIdentifierWithSubId{
+                player->getNetworkIdentifier(),
+                player->getClientSubId()
+            });
+        }
+        return result;
+    }
+
+    static void mergeTargets(Targets& dst, Targets const& src) {
+        for (auto const& id : src.players) {
+            bool exists = false;
+            for (auto const& other : dst.players) {
+                if (other == id) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) dst.players.emplace_back(id);
+        }
+        for (auto const& client : src.clients) {
+            bool exists = false;
+            for (auto const& other : dst.clients) {
+                if (other.id == client.id && other.subClientId == client.subClientId) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) dst.clients.emplace_back(client);
+        }
+    }
+
+    static void sendPacket(
+        PrimitiveShapesPacket const& packet,
+        DimensionType                dim,
+        Vec3 const&                  pos,
+        Targets const&               targets
+    ) {
+        if (targets.broadcast()) {
+            packet.sendTo(pos, dim);
+            return;
+        }
+
+        auto level = ll::service::getLevel();
+        if (!level) return;
+        auto dimension = level->getDimension(dim).lock();
+        if (!dimension) return;
+
+        std::vector<Player*> players;
+        players.reserve(targets.players.size());
+        for (auto const& id : targets.players) {
+            if (auto* player = level->getPlayer(id)) players.emplace_back(player);
+        }
+        if (players.empty()) return;
+        sendToPlayerAt(*dimension, pos, packet, players);
+    }
+
+    [[nodiscard]] bool
+    isVisibleTo(GeoId geoId, NetworkIdentifier const& id, SubClientId subClientId) const {
+        auto it = targets.find(geoId);
+        if (it == targets.end()) return true;
+        if (it->second.broadcast()) return true;
+        for (auto const& client : it->second.clients) {
+            if (client.id == id && client.subClientId == subClientId) return true;
+        }
+        return false;
+    }
+
     // void sendPacketImmediately(DebugDrawerPacket& pkt) {
     //     if (pkt.mShapes->empty()) return;
     //     ll::thread::ServerThreadExecutor::getDefault().execute([pkt] { pkt.sendToClients(); });
@@ -48,10 +137,16 @@ public:
         return a.first.value < b.value;
     }
 
-    void
-    addPacket(GeoId geoId, std::shared_ptr<PrimitiveShapesPacket>& packet, int dimId, Vec3 const& pos) {
+    void addPacket(
+        GeoId                                   geoId,
+        std::shared_ptr<PrimitiveShapesPacket>& packet,
+        int                                     dimId,
+        Vec3 const&                             pos,
+        Targets const&                          target
+    ) {
         if (packet) {
             geoPackets.emplace(geoId, std::vector<std::shared_ptr<PrimitiveShapesPacket>>{packet});
+            targets.emplace(geoId, target);
             auto chunkPos         = ChunkPos(pos);
             auto key              = std::make_pair(chunkPos, dimId);
             auto [iter, inserted] = chunkPackets.try_emplace(key);
@@ -108,20 +203,39 @@ LL_TYPE_INSTANCE_HOOK(
             std::lock_guard l{listMutex};
 
             for (auto s : list) {
-                s->impl->chunkPackets.erase_if(key, [&_chunkPackets](auto&& iter) {
-                    std::erase_if(iter.second, [&_chunkPackets](auto&& packetPair) {
-                        _chunkPackets.reserve(_chunkPackets.size() + packetPair.second.size());
-                        std::erase_if(packetPair.second, [&_chunkPackets](auto&& pkt) {
-                            if (auto shared = pkt.lock()) {
-                                _chunkPackets.emplace_back(shared);
-                                return false;
+                s->impl->chunkPackets.erase_if(
+                    key,
+                    [&_chunkPackets, s, &id, recipientSubId](auto&& iter) {
+                        std::erase_if(
+                            iter.second,
+                            [&_chunkPackets, s, &id, recipientSubId](auto&& packetPair) {
+                                _chunkPackets.reserve(
+                                    _chunkPackets.size() + packetPair.second.size()
+                                );
+                                std::erase_if(
+                                    packetPair.second,
+                                    [&_chunkPackets, s, &packetPair, &id, recipientSubId](
+                                        auto&& pkt
+                                    ) {
+                                        if (auto shared = pkt.lock()) {
+                                            if (s->impl->isVisibleTo(
+                                                    packetPair.first,
+                                                    id,
+                                                    recipientSubId
+                                                )) {
+                                                _chunkPackets.emplace_back(shared);
+                                            }
+                                            return false;
+                                        }
+                                        return true;
+                                    }
+                                );
+                                return packetPair.second.empty();
                             }
-                            return true;
-                        });
-                        return packetPair.second.empty();
-                    });
-                    return iter.second.empty();
-                });
+                        );
+                        return iter.second.empty();
+                    }
+                );
             }
         }
         for (auto& pkt : _chunkPackets) {
@@ -148,13 +262,16 @@ DebugDrawingHandler::~DebugDrawingHandler() {
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::line(
-    DimensionType     dim,
-    Vec3 const&       begin,
-    Vec3 const&       end,
-    mce::Color const& color,
-    std::optional<float> /*thickness*/
+    DimensionType               dim,
+    Vec3 const&                 begin,
+    Vec3 const&                 end,
+    mce::Color const&           color,
+    std::optional<float> /*thickness*/,
+    std::vector<Player*> const& players
 ) {
     if (begin == end) return GeoId::invalid();
+
+    auto targets = Impl::makeTargets(players);
 
     Vec3   offset = end - begin;
     double len    = offset.length();
@@ -169,12 +286,12 @@ GeometryGroup::GeoId DebugDrawingHandler::line(
         shape.mDimensionId      = dim;
         shape.mExtraDataPayload = LineDataPayload{.mEndLocation = end};
         packet->mShapes->emplace_back(std::move(shape));
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim] {
-            packet->sendTo(begin, dim);
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim, targets] {
+            Impl::sendPacket(*packet, dim, begin, targets);
         });
 
         auto id = getNextGeoId();
-        impl->addPacket(id, packet, dim, begin);
+        impl->addPacket(id, packet, dim, begin, targets);
         return id;
     }
 
@@ -187,22 +304,25 @@ GeometryGroup::GeoId DebugDrawingHandler::line(
     ids.reserve(segmentNum);
     for (int i = 0; i < segmentNum - 1; i++) {
         currentPos += offset;
-        ids.emplace_back(line(dim, lastPos, currentPos, color));
+        ids.emplace_back(line(dim, lastPos, currentPos, color, {}, players));
         lastPos = currentPos;
     }
-    ids.emplace_back(line(dim, currentPos, end, color)); // 避免浮点误差
+    ids.emplace_back(line(dim, currentPos, end, color, {}, players)); // 避免浮点误差
 
     return merge(ids);
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::box(
-    DimensionType        dim,
-    AABB const&          box,
-    mce::Color const&    color,
-    std::optional<float> thickness
+    DimensionType               dim,
+    AABB const&                 box,
+    mce::Color const&           color,
+    std::optional<float>        thickness,
+    std::vector<Player*> const& players
 ) {
     if ((box.max - box.min).lengthSqr() >= shapeDisplayRadius * shapeDisplayRadius)
-        return Base::box(dim, box, color, thickness);
+        return Base::box(dim, box, color, thickness, players);
+
+    auto targets = Impl::makeTargets(players);
 
     auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
@@ -214,29 +334,32 @@ GeometryGroup::GeoId DebugDrawingHandler::box(
     shape.mDimensionId      = dim;
     shape.mExtraDataPayload = BoxDataPayload{.mBoxBound = box.max - box.min};
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = box.min, dim] {
-        packet->sendTo(begin, dim);
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = box.min, dim, targets] {
+        Impl::sendPacket(*packet, dim, begin, targets);
     });
 
     auto id = getNextGeoId();
-    impl->addPacket(id, packet, dim, box.min);
+    impl->addPacket(id, packet, dim, box.min, targets);
     return id;
 }
 
 
 GeometryGroup::GeoId DebugDrawingHandler::circle(
-    DimensionType        dim,
-    Vec3 const&          center,
-    Vec3 const&          normal,
-    float                radius,
-    mce::Color const&    color,
-    std::optional<float> thickness
+    DimensionType               dim,
+    Vec3 const&                 center,
+    Vec3 const&                 normal,
+    float                       radius,
+    mce::Color const&           color,
+    std::optional<float>        thickness,
+    std::vector<Player*> const& players
 ) {
     auto const& config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
 
     if (radius > shapeDisplayRadius || !config.useNativeCircle) {
-        return Base::circle(dim, center, normal, radius, color, thickness);
+        return Base::circle(dim, center, normal, radius, color, thickness, players);
     }
+
+    auto targets = Impl::makeTargets(players);
 
     auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
@@ -249,27 +372,30 @@ GeometryGroup::GeoId DebugDrawingHandler::circle(
     shape.mColor       = color;
     shape.mDimensionId = dim;
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim] {
-        packet->sendTo(begin, dim);
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim, targets] {
+        Impl::sendPacket(*packet, dim, begin, targets);
     });
 
     auto id = getNextGeoId();
-    impl->addPacket(id, packet, dim, center);
+    impl->addPacket(id, packet, dim, center, targets);
     return id;
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::sphere(
-    DimensionType        dim,
-    Vec3 const&          center,
-    float                radius,
-    mce::Color const&    color,
-    std::optional<float> thickness
+    DimensionType               dim,
+    Vec3 const&                 center,
+    float                       radius,
+    mce::Color const&           color,
+    std::optional<float>        thickness,
+    std::vector<Player*> const& players
 ) {
     auto const& config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
 
     if (radius > shapeDisplayRadius || !config.useNativeSphere) {
-        return Base::sphere(dim, center, radius, color, thickness);
+        return Base::sphere(dim, center, radius, color, thickness, players);
     }
+
+    auto targets = Impl::makeTargets(players);
 
 
     auto packet = std::make_shared<PrimitiveShapesPacket>();
@@ -285,24 +411,27 @@ GeometryGroup::GeoId DebugDrawingHandler::sphere(
         shape.mExtraDataPayload = SphereDataPayload{.mNumSegments = config.sphereSegments.value()};
     }
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim] {
-        packet->sendTo(begin, dim);
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim, targets] {
+        Impl::sendPacket(*packet, dim, begin, targets);
     });
 
     auto id = getNextGeoId();
-    impl->addPacket(id, packet, dim, center);
+    impl->addPacket(id, packet, dim, center, targets);
     return id;
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::arrow(
-    DimensionType        dim,
-    Vec3 const&          begin,
-    Vec3 const&          end,
-    mce::Color const&    color,
-    std::optional<float> mArrowHeadLength,
-    std::optional<float> mArrowHeadRadius
+    DimensionType               dim,
+    Vec3 const&                 begin,
+    Vec3 const&                 end,
+    mce::Color const&           color,
+    std::optional<float>        mArrowHeadLength,
+    std::optional<float>        mArrowHeadRadius,
+    std::vector<Player*> const& players
 ) {
     if (begin == end) return GeoId::invalid();
+
+    auto targets = Impl::makeTargets(players);
 
     Vec3   offset = end - begin;
     double len    = offset.length();
@@ -323,12 +452,12 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
             .mNumSegments     = config.arrowSegments
         };
         packet->mShapes->emplace_back(std::move(shape));
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim] {
-            packet->sendTo(begin, dim);
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim, targets] {
+            Impl::sendPacket(*packet, dim, begin, targets);
         });
 
         auto id = getNextGeoId();
-        impl->addPacket(id, packet, dim, begin);
+        impl->addPacket(id, packet, dim, begin, targets);
         return id;
     }
 
@@ -340,20 +469,25 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
     ids.reserve(segmentNum);
     for (int i = 0; i < segmentNum - 1; i++) {
         currentPos += offset;
-        ids.emplace_back(line(dim, lastPos, currentPos, color));
+        ids.emplace_back(line(dim, lastPos, currentPos, color, {}, players));
         lastPos = currentPos;
     }
-    ids.emplace_back(arrow(dim, currentPos, end, color, mArrowHeadLength, mArrowHeadRadius));
+    ids.emplace_back(
+        arrow(dim, currentPos, end, color, mArrowHeadLength, mArrowHeadRadius, players)
+    );
     return merge(ids);
 }
 
 GeometryGroup::GeoId DebugDrawingHandler::text(
-    DimensionType        dim,
-    Vec3 const&          pos,
-    std::string          text,
-    mce::Color const&    color,
-    std::optional<float> scale
+    DimensionType               dim,
+    Vec3 const&                 pos,
+    std::string                 text,
+    mce::Color const&           color,
+    std::optional<float>        scale,
+    std::vector<Player*> const& players
 ) {
+    auto targets = Impl::makeTargets(players);
+
     auto packet = std::make_shared<PrimitiveShapesPacket>();
     packet->setSerializationMode(SerializationMode::CerealOnly);
     PrimitiveShapeDataPayload shape;
@@ -367,12 +501,12 @@ GeometryGroup::GeoId DebugDrawingHandler::text(
     extraDataPayload.mText  = std::move(text);
     shape.mExtraDataPayload = std::move(extraDataPayload);
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = pos, dim] {
-        packet->sendTo(begin, dim);
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = pos, dim, targets] {
+        Impl::sendPacket(*packet, dim, begin, targets);
     });
 
     auto id = getNextGeoId();
-    impl->addPacket(id, packet, dim, pos);
+    impl->addPacket(id, packet, dim, pos, targets);
     return id;
 }
 
@@ -405,11 +539,20 @@ bool DebugDrawingHandler::remove(GeoId id) {
         removePackets = std::move(iter.second);
         return true;
     });
+
+    Impl::Targets target;
+    if (auto it = impl->targets.find(id); it != impl->targets.end()) target = it->second;
+    impl->targets.erase(id);
+
     for (auto& packet : removePackets) {
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet] {
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, target] {
             if (packet) {
                 for (auto& shape : *packet->mShapes) shape.mShapeType = std::nullopt;
-                packet->sendToClients();
+                if (target.broadcast()) {
+                    packet->sendToClients();
+                } else {
+                    for (auto const& client : target.clients) packet->sendToClient(client);
+                }
             }
         });
     }
@@ -491,6 +634,20 @@ GeometryGroup::GeoId DebugDrawingHandler::merge(std::span<GeoId> ids) {
     // 添加新id的geoPackets
     impl->geoPackets.emplace(newId, std::move(newPackets));
 
+    // 合并目标玩家
+    Impl::Targets mergedTargets;
+    bool          broadcast = false;
+    for (auto id : ids) {
+        auto it = impl->targets.find(id);
+        if (it == impl->targets.end() || it->second.broadcast()) {
+            broadcast = true;
+            break;
+        }
+        Impl::mergeTargets(mergedTargets, it->second);
+    }
+    for (auto id : ids) impl->targets.erase(id);
+    impl->targets.emplace(newId, broadcast ? Impl::Targets{} : std::move(mergedTargets));
+
     return newId;
 }
 
@@ -568,13 +725,18 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
                 }
             }
         }
+        Impl::Targets target;
+        if (auto it = impl->targets.find(id); it != impl->targets.end()) target = it->second;
+
         for (auto& pkt : iter.second)
-            ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
+            ll::thread::ServerThreadExecutor::getDefault().execute([pkt, target] {
                 if (pkt && !pkt->mShapes->empty() && (*pkt->mShapes)[0].mLocation->has_value()
                     && (*pkt->mShapes)[0].mDimensionId->has_value()) {
-                    pkt->sendTo(
+                    Impl::sendPacket(
+                        *pkt,
+                        (*pkt->mShapes)[0].mDimensionId->value(),
                         (*pkt->mShapes)[0].mLocation->value(),
-                        (*pkt->mShapes)[0].mDimensionId->value()
+                        target
                     );
                 }
             });
