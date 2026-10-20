@@ -76,6 +76,8 @@ struct ParticleSpawner::Impl {
     size_t                 tickId{};
     ll::event::ListenerPtr listener;
     size_t                 id{};
+    // 指向所属 GeometryGroup 的 mViewer（GeometryGroup 析构时 active 会先置为 false）
+    std::optional<mce::UUID> const* viewer = nullptr;
     ll::ConcurrentDenseMap<
         GeoId,
         std::unique_ptr<SpawnParticleEffectPacket>,
@@ -90,8 +92,8 @@ struct ParticleSpawner::Impl {
         if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
             return;
         }
-        ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-            pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
+        ll::thread::ServerThreadExecutor::getDefault().execute([pkt, viewer = *viewer] {
+            detail::sendToViewerOrNearby(viewer, pkt, *pkt.mPos, pkt.mVanillaDimensionId);
         });
     }
 
@@ -106,7 +108,7 @@ struct ParticleSpawner::Impl {
             geoPackets.with_submap(begin + i, [&](auto& map) {
                 for (auto& [id, pkt] : map) {
                     if (pkt) {
-                        pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId);
+                        detail::sendToViewerOrNearby(*viewer, *pkt, *pkt->mPos, pkt->mVanillaDimensionId);
                     }
                 }
             });
@@ -116,6 +118,7 @@ struct ParticleSpawner::Impl {
 };
 
 ParticleSpawner::ParticleSpawner() : impl(std::make_shared<Impl>()) {
+    impl->viewer = &mViewer;
     impl->listener =
         ll::event::EventBus::getInstance().emplaceListener<ll::event::world::ServerLevelTickEvent>(
             [impl = impl](ll::event::world::ServerLevelTickEvent&) { impl->tick(); }
