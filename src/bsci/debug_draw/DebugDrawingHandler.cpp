@@ -108,6 +108,8 @@ LL_TYPE_INSTANCE_HOOK(
             std::lock_guard l{listMutex};
 
             for (auto s : list) {
+                // 指定了 viewer 的 GeometryGroup 只向 viewer 对应的客户端补发图形
+                if (auto const& viewer = s->getViewer(); viewer && !detail::isViewerClient(*viewer, id)) continue;
                 s->impl->chunkPackets.erase_if(key, [&_chunkPackets](auto&& iter) {
                     std::erase_if(iter.second, [&_chunkPackets](auto&& packetPair) {
                         _chunkPackets.reserve(_chunkPackets.size() + packetPair.second.size());
@@ -169,8 +171,8 @@ GeometryGroup::GeoId DebugDrawingHandler::line(
         shape.mDimensionId      = dim;
         shape.mExtraDataPayload = LineDataPayload{.mEndLocation = end};
         packet->mShapes->emplace_back(std::move(shape));
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim] {
-            packet->sendTo(begin, dim);
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
         });
 
         auto id = getNextGeoId();
@@ -214,9 +216,9 @@ GeometryGroup::GeoId DebugDrawingHandler::box(
     shape.mDimensionId      = dim;
     shape.mExtraDataPayload = BoxDataPayload{.mBoxBound = box.max - box.min};
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = box.min, dim] {
-        packet->sendTo(begin, dim);
-    });
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = box.min, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
+        });
 
     auto id = getNextGeoId();
     impl->addPacket(id, packet, dim, box.min);
@@ -249,9 +251,9 @@ GeometryGroup::GeoId DebugDrawingHandler::circle(
     shape.mColor       = color;
     shape.mDimensionId = dim;
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim] {
-        packet->sendTo(begin, dim);
-    });
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
+        });
 
     auto id = getNextGeoId();
     impl->addPacket(id, packet, dim, center);
@@ -285,9 +287,9 @@ GeometryGroup::GeoId DebugDrawingHandler::sphere(
         shape.mExtraDataPayload = SphereDataPayload{.mNumSegments = config.sphereSegments.value()};
     }
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim] {
-        packet->sendTo(begin, dim);
-    });
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = center, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
+        });
 
     auto id = getNextGeoId();
     impl->addPacket(id, packet, dim, center);
@@ -323,8 +325,8 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
             .mNumSegments     = config.arrowSegments
         };
         packet->mShapes->emplace_back(std::move(shape));
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim] {
-            packet->sendTo(begin, dim);
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
         });
 
         auto id = getNextGeoId();
@@ -367,9 +369,9 @@ GeometryGroup::GeoId DebugDrawingHandler::text(
     extraDataPayload.mText  = std::move(text);
     shape.mExtraDataPayload = std::move(extraDataPayload);
     packet->mShapes->emplace_back(std::move(shape));
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = pos, dim] {
-        packet->sendTo(begin, dim);
-    });
+    ll::thread::ServerThreadExecutor::getDefault().execute([packet, begin = pos, dim, viewer = mViewer] {
+            detail::sendToViewerOrNearby(viewer, *packet, begin, dim);
+        });
 
     auto id = getNextGeoId();
     impl->addPacket(id, packet, dim, pos);
@@ -406,10 +408,10 @@ bool DebugDrawingHandler::remove(GeoId id) {
         return true;
     });
     for (auto& packet : removePackets) {
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet] {
+        ll::thread::ServerThreadExecutor::getDefault().execute([packet, viewer = mViewer] {
             if (packet) {
                 for (auto& shape : *packet->mShapes) shape.mShapeType = std::nullopt;
-                packet->sendToClients();
+                detail::sendToViewerOrAll(viewer, *packet);
             }
         });
     }
@@ -569,10 +571,12 @@ bool DebugDrawingHandler::shift(GeoId id, Vec3 const& v) {
             }
         }
         for (auto& pkt : iter.second)
-            ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
+            ll::thread::ServerThreadExecutor::getDefault().execute([pkt, viewer = mViewer] {
                 if (pkt && !pkt->mShapes->empty() && (*pkt->mShapes)[0].mLocation->has_value()
                     && (*pkt->mShapes)[0].mDimensionId->has_value()) {
-                    pkt->sendTo(
+                    detail::sendToViewerOrNearby(
+                        viewer,
+                        *pkt,
                         (*pkt->mShapes)[0].mLocation->value(),
                         (*pkt->mShapes)[0].mDimensionId->value()
                     );

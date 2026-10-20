@@ -8,18 +8,64 @@
 #include "bsci/particle/ParticleSpawner.h"
 #include "bsci/utils/Math.h"
 
+#include <ll/api/service/Bedrock.h>
+#include <mc/network/NetworkIdentifier.h>
+#include <mc/network/Packet.h>
+#include <mc/world/actor/player/Player.h>
+#include <mc/world/level/Level.h>
+
 
 namespace bsci {
 
 
-std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
-    auto& type = BedrockServerClientInterface::getInstance().getConfig().defaultGroup;
+std::unique_ptr<GeometryGroup> GeometryGroup::createDefault(std::optional<mce::UUID> viewer) {
+    auto&                          type = BedrockServerClientInterface::getInstance().getConfig().defaultGroup;
+    std::unique_ptr<GeometryGroup> group;
     if (type == "particle") {
-        return std::make_unique<ParticleSpawner>();
+        group = std::make_unique<ParticleSpawner>();
     } else {
-        return std::make_unique<DebugDrawingHandler>();
+        group = std::make_unique<DebugDrawingHandler>();
     }
+    group->mViewer = std::move(viewer);
+    return group;
 }
+
+namespace detail {
+static Player* findViewer(mce::UUID const& viewer) {
+    auto level = ll::service::getLevel();
+    if (!level.has_value()) return nullptr;
+    return level->getPlayer(viewer);
+}
+
+void sendToViewerOrNearby(
+    std::optional<mce::UUID> const& viewer,
+    Packet const&                   packet,
+    Vec3 const&                     pos,
+    DimensionType                   dim
+) {
+    if (!viewer) {
+        packet.sendTo(pos, dim);
+        return;
+    }
+    auto* player = findViewer(*viewer);
+    if (!player || static_cast<int>(player->getDimensionId()) != static_cast<int>(dim)) return;
+    packet.sendTo(*player);
+}
+
+void sendToViewerOrAll(std::optional<mce::UUID> const& viewer, Packet const& packet) {
+    if (!viewer) {
+        packet.sendToClients();
+        return;
+    }
+    if (auto* player = findViewer(*viewer)) packet.sendTo(*player);
+}
+
+bool isViewerClient(mce::UUID const& viewer, NetworkIdentifier const& id) {
+    auto* player = findViewer(viewer);
+    if (!player) return false;
+    return player->getNetworkIdentifier() == id;
+}
+} // namespace detail
 
 GeometryGroup::GeoId GeometryGroup::getNextGeoId() const {
     static std::atomic_uint64_t id{};
