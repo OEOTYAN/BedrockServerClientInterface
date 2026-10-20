@@ -14,6 +14,8 @@ public:
     DebugDrawingHandler();
     ~DebugDrawingHandler();
 
+    GroupType type() const noexcept override;
+
 public:
     GeoId line(
         DimensionType        dim,

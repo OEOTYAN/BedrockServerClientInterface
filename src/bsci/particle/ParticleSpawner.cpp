@@ -133,6 +133,10 @@ ParticleSpawner::~ParticleSpawner() {
     }
 }
 
+GroupType ParticleSpawner::type() const noexcept {
+    return GroupType::Particle;
+}
+
 GeometryGroup::GeoId ParticleSpawner::particle(
     DimensionType      dim,
     Vec3 const&        pos,

@@ -32,6 +32,8 @@ protected:
 public:
     BSCI_API virtual ~PacketGeoGroup();
 
+    BSCI_API GroupType type() const noexcept override;
+
     BSCI_API void setPacketSender(PacketSender sender);
 };
 

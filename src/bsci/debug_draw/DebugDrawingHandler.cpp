@@ -282,6 +282,10 @@ DebugDrawingHandler::~DebugDrawingHandler() {
     hasInstance = !handlers.empty();
 }
 
+GroupType DebugDrawingHandler::type() const noexcept {
+    return GroupType::DebugDrawing;
+}
+
 GeometryGroup::GeoId DebugDrawingHandler::line(
     DimensionType     dim,
     Vec3 const&       begin,

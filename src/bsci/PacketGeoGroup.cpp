@@ -41,6 +41,10 @@ PacketGeoGroup::PacketGeoGroup() : impl(std::make_shared<Impl>()) {}
 
 PacketGeoGroup::~PacketGeoGroup() = default;
 
+GroupType PacketGeoGroup::type() const noexcept {
+    return GroupType::Packet;
+}
+
 void PacketGeoGroup::sendPacket(
     GeoId                   id,
     std::shared_ptr<Packet> packet,

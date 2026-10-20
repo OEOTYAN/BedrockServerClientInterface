@@ -23,6 +23,8 @@ public:
 
     ~ParticleSpawner() override;
 
+    GroupType type() const noexcept override;
+
     GeoId point(
         DimensionType        dim,
         Vec3 const&          pos,

@@ -14,6 +14,25 @@
 namespace bsci {
 class BedrockServerClientInterface;
 
+enum class GroupType : uint8_t {
+    Geometry     = 0,
+    Packet       = 1 << 0,
+    DebugDrawing = (1 << 1) | (1 << 0),
+    Particle     = (1 << 2) | (1 << 0),
+};
+
+constexpr GroupType operator|(GroupType lhs, GroupType rhs) noexcept {
+    return static_cast<GroupType>(
+        static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs)
+    );
+}
+
+constexpr GroupType operator&(GroupType lhs, GroupType rhs) noexcept {
+    return static_cast<GroupType>(
+        static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs)
+    );
+}
+
 class GeometryGroup {
 public:
     struct GeoId {
@@ -35,6 +54,8 @@ public:
     BSCI_API virtual ~GeometryGroup();
 
     BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
+
+    BSCI_API virtual GroupType type() const noexcept;
 
     BSCI_API virtual GeoId point(
         DimensionType        dim,

@@ -21,6 +21,10 @@ BedrockServerClientInterface& GeometryGroup::getBSCI() const {
     return BedrockServerClientInterface::getInstance();
 }
 
+GroupType GeometryGroup::type() const noexcept {
+    return GroupType::Geometry;
+}
+
 std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
     auto& type = BedrockServerClientInterface::getInstance().getConfig().defaultGroup;
     if (type == "particle") {
