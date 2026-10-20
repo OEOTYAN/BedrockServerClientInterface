@@ -1,15 +1,15 @@
 #pragma once
 
-#include "bsci/GeometryGroup.h"
+#include "bsci/PacketGeoGroup.h"
 
 #include <memory>
 
 #include <mc/util/MolangVariableMap.h>
 
 namespace bsci {
-class ParticleSpawner : public GeometryGroup {
-    struct Impl;
-    std::shared_ptr<Impl> impl;
+class ParticleSpawner : public PacketGeoGroup {
+    struct State;
+    std::shared_ptr<State> particleState;
 
     GeoId particle(
         DimensionType      dim,

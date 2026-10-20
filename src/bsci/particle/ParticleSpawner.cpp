@@ -7,7 +7,6 @@
 #include <ll/api/event/world/ServerLevelTickEvent.h>
 #include <ll/api/service/Bedrock.h>
 #include <ll/api/service/GamingStatus.h>
-#include <ll/api/thread/ServerThreadExecutor.h>
 
 #include <atomic>
 #include <mc/deps/core/string/HashedString.h>
@@ -46,11 +45,10 @@ namespace bsci {
 //     return std::make_unique<ParticleSpawner>();
 // }
 
-static void addTime(MolangVariableMap& var) {
-    auto& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+static void addTime(MolangVariableMap& var, double extraTime, size_t tablePerTick) {
     var.setMolangVariable(
         "variable.bsci_particle_lifetime",
-        (float)(config.extraTime + ((64.0 / 20.0) / (double)config.tablePerTick))
+        (float)(extraTime + ((64.0 / 20.0) / (double)tablePerTick))
     );
 }
 static void addSize(MolangVariableMap& var, Vec2 const& size) {
@@ -71,42 +69,45 @@ static void addDirection(MolangVariableMap& var, Vec3 const& dir) {
         MolangMemberArray{MolangStruct_XYZ{}, dir}
     );
 }
-struct ParticleSpawner::Impl {
+struct ParticleSpawner::State {
+    ParticleSpawner&       owner;
     std::atomic_bool       active{true};
     size_t                 tickId{};
     ll::event::ListenerPtr listener;
     size_t                 id{};
     ll::ConcurrentDenseMap<
         GeoId,
-        std::unique_ptr<SpawnParticleEffectPacket>,
+        std::shared_ptr<SpawnParticleEffectPacket>,
         ::phmap::priv::hash_default_hash<GeoId>,
         ::phmap::priv::hash_default_eq<GeoId>,
-        ::std::allocator<::std::pair<GeoId const, std::unique_ptr<SpawnParticleEffectPacket>>>,
+        ::std::allocator<::std::pair<GeoId const, std::shared_ptr<SpawnParticleEffectPacket>>>,
         6>
                                                       geoPackets;
     ll::ConcurrentDenseMap<GeoId, std::vector<GeoId>> geoGroup;
 
-    void sendParticleImmediately(SpawnParticleEffectPacket& pkt) {
-        if (BedrockServerClientInterface::getInstance().getConfig().particle.delayUndate) {
+    explicit State(ParticleSpawner& owner) : owner(owner) {}
+
+    void sendParticleImmediately(
+        GeoId const&                                      id,
+        std::shared_ptr<SpawnParticleEffectPacket> const& packet
+    ) {
+        if (owner.getBSCI().getConfig().particle.delayUndate) {
             return;
         }
-        ll::thread::ServerThreadExecutor::getDefault().execute([pkt] {
-            pkt.sendTo(*pkt.mPos, pkt.mVanillaDimensionId);
-        });
+        owner.sendPacket(id, packet, *packet->mPos, packet->mVanillaDimensionId);
     }
 
     void tick() {
         if (!active.load(std::memory_order_acquire)) {
             return;
         }
-        auto const tablePerTick =
-            BedrockServerClientInterface::getInstance().getConfig().particle.tablePerTick;
-        auto begin = (tickId % (64 / tablePerTick)) * tablePerTick;
+        auto const tablePerTick = owner.getBSCI().getConfig().particle.tablePerTick;
+        auto       begin        = (tickId % (64 / tablePerTick)) * tablePerTick;
         for (size_t i = 0; i < tablePerTick; i++) {
             geoPackets.with_submap(begin + i, [&](auto& map) {
                 for (auto& [id, pkt] : map) {
                     if (pkt) {
-                        pkt->sendTo(*pkt->mPos, pkt->mVanillaDimensionId);
+                        owner.sendPacket(id, pkt, *pkt->mPos, pkt->mVanillaDimensionId);
                     }
                 }
             });
@@ -115,19 +116,19 @@ struct ParticleSpawner::Impl {
     }
 };
 
-ParticleSpawner::ParticleSpawner() : impl(std::make_shared<Impl>()) {
-    impl->listener =
+ParticleSpawner::ParticleSpawner() : particleState(std::make_shared<State>(*this)) {
+    particleState->listener =
         ll::event::EventBus::getInstance().emplaceListener<ll::event::world::ServerLevelTickEvent>(
-            [impl = impl](ll::event::world::ServerLevelTickEvent&) { impl->tick(); }
+            [state = particleState](ll::event::world::ServerLevelTickEvent&) { state->tick(); }
         );
 }
 ParticleSpawner::~ParticleSpawner() {
-    if (impl) {
-        impl->active.store(false, std::memory_order_release);
-        if (impl->listener) {
+    if (particleState) {
+        particleState->active.store(false, std::memory_order_release);
+        if (particleState->listener) {
             ll::event::EventBus::getInstance()
-                .removeListener<ll::event::world::ServerLevelTickEvent>(impl->listener);
-            impl->listener.reset();
+                .removeListener<ll::event::world::ServerLevelTickEvent>(particleState->listener);
+            particleState->listener.reset();
         }
     }
 }
@@ -138,12 +139,13 @@ GeometryGroup::GeoId ParticleSpawner::particle(
     std::string const& name,
     MolangVariableMap  var
 ) const {
-    addTime(var);
+    auto const& config = getBSCI().getConfig().particle;
+    addTime(var, config.extraTime, config.tablePerTick);
     auto packet =
-        std::make_unique<SpawnParticleEffectPacket>(pos, name, (uchar)dim, std::move(var));
-    impl->sendParticleImmediately(*packet);
+        std::make_shared<SpawnParticleEffectPacket>(pos, name, (uchar)dim, std::move(var));
     auto id = GeometryGroup::getNextGeoId();
-    impl->geoPackets.try_emplace(id, std::move(packet));
+    particleState->sendParticleImmediately(id, packet);
+    particleState->geoPackets.try_emplace(id, std::move(packet));
     return id;
 }
 
@@ -158,10 +160,7 @@ GeometryGroup::GeoId ParticleSpawner::line(
     MolangVariableMap var;
     addSize(
         var,
-        {begin.distanceTo(end),
-         thickness.value_or(
-             BedrockServerClientInterface::getInstance().getConfig().particle.defaultThickness
-         )}
+        {begin.distanceTo(end), thickness.value_or(getBSCI().getConfig().particle.defaultThickness)}
     );
     addDirection(var, (end - begin).normalize());
     addTint(var, color);
@@ -180,12 +179,7 @@ GeometryGroup::GeoId ParticleSpawner::point(
     std::optional<float> radius
 ) {
     MolangVariableMap var;
-    addSize(
-        var,
-        {radius.value_or(
-            BedrockServerClientInterface::getInstance().getConfig().particle.defaultPointRadius
-        )}
-    );
+    addSize(var, {radius.value_or(getBSCI().getConfig().particle.defaultPointRadius)});
     addTint(var, color);
     return particle(dim, pos, color.a == 1 ? "bsci:point" : "bsci:blend_point", std::move(var));
 }
@@ -194,13 +188,13 @@ bool ParticleSpawner::remove(GeoId id) {
     if (id.value == 0) {
         return false;
     }
-    if (!impl->geoGroup.erase_if(id, [this](auto&& iter) {
+    if (!particleState->geoGroup.erase_if(id, [this](auto&& iter) {
             for (auto& subId : iter.second) {
-                impl->geoPackets.erase(subId);
+                particleState->geoPackets.erase(subId);
             }
             return true;
         })) {
-        return impl->geoPackets.erase(id);
+        return particleState->geoPackets.erase(id);
     }
     return true;
 }
@@ -213,7 +207,7 @@ GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
     std::vector<GeoId> res;
     res.reserve(ids.size());
     for (auto const& sid : ids) {
-        if (!impl->geoGroup.erase_if(sid, [&res](auto&& iter) {
+        if (!particleState->geoGroup.erase_if(sid, [&res](auto&& iter) {
                 auto& source = iter.second;
                 res.reserve(res.size() + source.size());
                 res.insert(
@@ -226,22 +220,22 @@ GeometryGroup::GeoId ParticleSpawner::merge(std::span<GeoId> ids) {
             res.push_back(sid);
         }
     }
-    impl->geoGroup.try_emplace(id, std::move(res));
+    particleState->geoGroup.try_emplace(id, std::move(res));
     return id;
 }
 
 bool ParticleSpawner::shift(GeoId id, Vec3 const& v) {
-    if (!impl->geoGroup.modify_if(id, [this, &v](auto&& i) {
+    if (!particleState->geoGroup.modify_if(id, [this, &v](auto&& i) {
             for (auto& subId : i.second) {
-                impl->geoPackets.modify_if(subId, [this, &v](auto&& iter) {
+                particleState->geoPackets.modify_if(subId, [this, &v, subId](auto&& iter) {
                     *iter.second->mPos += v;
-                    if (iter.second) impl->sendParticleImmediately(*iter.second);
+                    if (iter.second) particleState->sendParticleImmediately(subId, iter.second);
                 });
             }
         })) {
-        return impl->geoPackets.modify_if(id, [this, &v](auto&& iter) {
+        return particleState->geoPackets.modify_if(id, [this, &v, id](auto&& iter) {
             *iter.second->mPos += v;
-            if (iter.second) impl->sendParticleImmediately(*iter.second);
+            if (iter.second) particleState->sendParticleImmediately(id, iter.second);
         });
     }
     return true;

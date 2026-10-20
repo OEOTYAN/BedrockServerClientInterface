@@ -3,10 +3,17 @@
 #include "bsci/Marcos.h"
 #include "mc/world/phys/AABB.h"
 
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+
 #include <mc/deps/core/math/Color.h>
 #include <mc/world/level/dimension/DimensionType.h>
 
 namespace bsci {
+class BedrockServerClientInterface;
+
 class GeometryGroup {
 public:
     struct GeoId {
@@ -18,12 +25,16 @@ public:
     };
 
 protected:
+    GeometryGroup();
+
+    BedrockServerClientInterface& getBSCI() const;
+
     BSCI_API GeoId getNextGeoId() const;
 
 public:
-    BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
+    BSCI_API virtual ~GeometryGroup();
 
-    BSCI_API virtual ~GeometryGroup() = default;
+    BSCI_API static std::unique_ptr<GeometryGroup> createDefault();
 
     BSCI_API virtual GeoId point(
         DimensionType        dim,

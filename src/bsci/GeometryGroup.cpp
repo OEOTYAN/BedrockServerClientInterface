@@ -1,16 +1,25 @@
 #include "GeometryGroup.h"
 
+#include <atomic>
+#include <memory>
 #include <numbers>
 #include <ranges>
+#include <utility>
 
 #include "BedrockServerClientInterface.h"
 #include "bsci/debug_draw/DebugDrawingHandler.h"
 #include "bsci/particle/ParticleSpawner.h"
 #include "bsci/utils/Math.h"
 
-
 namespace bsci {
 
+GeometryGroup::GeometryGroup() = default;
+
+GeometryGroup::~GeometryGroup() = default;
+
+BedrockServerClientInterface& GeometryGroup::getBSCI() const {
+    return BedrockServerClientInterface::getInstance();
+}
 
 std::unique_ptr<GeometryGroup> GeometryGroup::createDefault() {
     auto& type = BedrockServerClientInterface::getInstance().getConfig().defaultGroup;
@@ -31,7 +40,7 @@ GeometryGroup::GeoId GeometryGroup::point(
     mce::Color const&    color,
     std::optional<float> radius
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    auto const& config = getBSCI().getConfig().particle;
     return sphere(dim, pos, radius.value_or(config.defaultPointRadius), color);
 }
 GeometryGroup::GeoId GeometryGroup::line(
@@ -81,7 +90,7 @@ GeometryGroup::GeoId GeometryGroup::circle(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    auto const& config = getBSCI().getConfig().particle;
 
     size_t const points = std::clamp(
         (size_t)std::ceil(radius * std::numbers::pi * 2 / config.minCircleSpacing),
@@ -111,7 +120,7 @@ GeometryGroup::GeoId GeometryGroup::cylinder(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    auto const& config = getBSCI().getConfig().particle;
 
     size_t const points = std::clamp(
         (size_t)std::ceil(radius * std::numbers::pi * 2 / config.minCircleSpacing),
@@ -139,11 +148,13 @@ GeometryGroup::GeoId GeometryGroup::cylinder(
 static Vec3 cubeToSphere(Vec3 const& v) {
     auto v2 = v * v;
     return v
-         * sqrt(Vec3{
-             1 - (v2.y + v2.z) / 2 + (v2.y * v2.z) / 3,
-             1 - (v2.z + v2.x) / 2 + (v2.z * v2.x) / 3,
-             1 - (v2.x + v2.y) / 2 + (v2.x * v2.y) / 3
-         });
+         * sqrt(
+               Vec3{
+                   1 - (v2.y + v2.z) / 2 + (v2.y * v2.z) / 3,
+                   1 - (v2.z + v2.x) / 2 + (v2.z * v2.x) / 3,
+                   1 - (v2.x + v2.y) / 2 + (v2.x * v2.y) / 3
+               }
+         );
 }
 
 GeometryGroup::GeoId GeometryGroup::sphere(
@@ -153,7 +164,7 @@ GeometryGroup::GeoId GeometryGroup::sphere(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    auto const& config = getBSCI().getConfig().particle;
 
     size_t const cells = std::clamp(
         (size_t)std::ceil(radius * 2 / config.minSphereSpacing),
@@ -209,13 +220,24 @@ GeometryGroup::GeoId GeometryGroup::sphere(
     return merge(ids);
 }
 
-GeometryGroup::GeoId GeometryGroup::
-    arrow(DimensionType dim, Vec3 const& begin, Vec3 const& end, mce::Color const& color, std::optional<float>, std::optional<float>) {
+GeometryGroup::GeoId GeometryGroup::arrow(
+    DimensionType     dim,
+    Vec3 const&       begin,
+    Vec3 const&       end,
+    mce::Color const& color,
+    std::optional<float>,
+    std::optional<float>
+) {
     return line(dim, begin, end, color);
 }
 
-GeometryGroup::GeoId GeometryGroup::
-    text(DimensionType, Vec3 const&, std::string, mce::Color const&, std::optional<float>) {
+GeometryGroup::GeoId GeometryGroup::text(
+    DimensionType,
+    Vec3 const&,
+    std::string,
+    mce::Color const&,
+    std::optional<float>
+) {
     return GeoId::invalid();
 }
 
@@ -228,7 +250,7 @@ GeometryGroup::GeoId GeometryGroup::cone(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().particle;
+    auto const& config = getBSCI().getConfig().particle;
 
     size_t const points =
         (std::clamp(

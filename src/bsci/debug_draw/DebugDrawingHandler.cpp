@@ -17,7 +17,6 @@
 
 #include <ll/api/base/Containers.h>
 #include <ll/api/memory/Hook.h>
-#include <ll/api/thread/ServerThreadExecutor.h>
 
 #include <mc/network/LoopbackPacketSender.h>
 #include <mc/network/MinecraftPacketIds.h>
@@ -45,17 +44,11 @@ PacketPtr makePacket(PrimitiveShape shape) {
     return packet;
 }
 
-void sendToPosition(PacketPtr const& packet, Vec3 const& position, DimensionType dimension) {
-    ll::thread::ServerThreadExecutor::getDefault().execute([packet, position, dimension] {
-        packet->sendTo(position, dimension);
-    });
-}
-
 } // namespace
 
 static std::atomic<uint64_t> nextId_{UINT64_MAX};
 
-class DebugDrawingHandler::Impl {
+class DebugDrawingHandler::State {
 public:
     using PacketPair = std::pair<GeoId, std::vector<std::weak_ptr<Packet>>>;
 
@@ -235,7 +228,7 @@ static std::vector<DebugDrawingHandler*> handlers;
 static std::atomic_bool                  hasInstance{false};
 
 LL_TYPE_INSTANCE_HOOK(
-    DebugDrawingHandler::Impl::Hook,
+    DebugDrawingHandler::State::Hook,
     ll::memory::HookPriority::Normal,
     LoopbackPacketSender,
     &LoopbackPacketSender::$sendToClient,
@@ -256,7 +249,7 @@ LL_TYPE_INSTANCE_HOOK(
     {
         std::lock_guard lock{listMutex};
         for (auto* handler : handlers) {
-            auto chunkPackets = handler->impl->packetsForChunk(key);
+            auto chunkPackets = handler->drawingState->packetsForChunk(key);
             packets.insert(
                 packets.end(),
                 std::make_move_iterator(chunkPackets.begin()),
@@ -270,8 +263,8 @@ LL_TYPE_INSTANCE_HOOK(
     }
 };
 
-DebugDrawingHandler::DebugDrawingHandler() : impl(std::make_unique<Impl>()) {
-    static ll::memory::HookRegistrar<DebugDrawingHandler::Impl::Hook> registrar;
+DebugDrawingHandler::DebugDrawingHandler() : drawingState(std::make_unique<State>()) {
+    static ll::memory::HookRegistrar<DebugDrawingHandler::State::Hook> registrar;
 
     std::lock_guard lock{listMutex};
     handlers.push_back(this);
@@ -311,8 +304,8 @@ GeometryGroup::GeoId DebugDrawingHandler::line(
 
         auto packet = makePacket(std::move(shape));
         auto id     = getNextGeoId();
-        impl->addPacket(id, packet, dim, begin);
-        sendToPosition(packet, begin, dim);
+        drawingState->addPacket(id, packet, dim, begin);
+        sendPacket(id, packet, begin, dim);
         return id;
     }
 
@@ -353,8 +346,8 @@ GeometryGroup::GeoId DebugDrawingHandler::box(
 
     auto packet = makePacket(std::move(shape));
     auto id     = getNextGeoId();
-    impl->addPacket(id, packet, dim, center);
-    sendToPosition(packet, center, dim);
+    drawingState->addPacket(id, packet, dim, center);
+    sendPacket(id, packet, center, dim);
     return id;
 }
 
@@ -366,7 +359,7 @@ GeometryGroup::GeoId DebugDrawingHandler::circle(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
+    auto const& config = getBSCI().getConfig().debugDraw;
     if (radius > shapeDisplayRadius || !config.useNativeCircle)
         return Base::circle(dim, center, normal, radius, color, thickness);
 
@@ -381,8 +374,8 @@ GeometryGroup::GeoId DebugDrawingHandler::circle(
 
     auto packet = makePacket(std::move(shape));
     auto id     = getNextGeoId();
-    impl->addPacket(id, packet, dim, center);
-    sendToPosition(packet, center, dim);
+    drawingState->addPacket(id, packet, dim, center);
+    sendPacket(id, packet, center, dim);
     return id;
 }
 
@@ -393,7 +386,7 @@ GeometryGroup::GeoId DebugDrawingHandler::sphere(
     mce::Color const&    color,
     std::optional<float> thickness
 ) {
-    auto const& config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
+    auto const& config = getBSCI().getConfig().debugDraw;
     if (radius > shapeDisplayRadius || !config.useNativeSphere)
         return Base::sphere(dim, center, radius, color, thickness);
 
@@ -410,8 +403,8 @@ GeometryGroup::GeoId DebugDrawingHandler::sphere(
 
     auto packet = makePacket(std::move(shape));
     auto id     = getNextGeoId();
-    impl->addPacket(id, packet, dim, center);
-    sendToPosition(packet, center, dim);
+    drawingState->addPacket(id, packet, dim, center);
+    sendPacket(id, packet, center, dim);
     return id;
 }
 
@@ -428,7 +421,7 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
     Vec3   offset = end - begin;
     double len    = offset.length();
     if (len <= shapeDisplayRadius + 0.5) {
-        auto const& config = BedrockServerClientInterface::getInstance().getConfig().debugDraw;
+        auto const& config = getBSCI().getConfig().debugDraw;
 
         PrimitiveShape shape;
         shape.mNetworkId        = nextId_.fetch_sub(1);
@@ -445,8 +438,8 @@ GeometryGroup::GeoId DebugDrawingHandler::arrow(
 
         auto packet = makePacket(std::move(shape));
         auto id     = getNextGeoId();
-        impl->addPacket(id, packet, dim, begin);
-        sendToPosition(packet, begin, dim);
+        drawingState->addPacket(id, packet, dim, begin);
+        sendPacket(id, packet, begin, dim);
         return id;
     }
 
@@ -487,24 +480,28 @@ GeometryGroup::GeoId DebugDrawingHandler::text(
 
     auto packet = makePacket(std::move(shape));
     auto id     = getNextGeoId();
-    impl->addPacket(id, packet, dim, pos);
-    sendToPosition(packet, pos, dim);
+    drawingState->addPacket(id, packet, dim, pos);
+    sendPacket(id, packet, pos, dim);
     return id;
 }
 
 bool DebugDrawingHandler::remove(GeoId id) {
     if (id.value == 0) return false;
 
-    auto removed = impl->take(std::span<GeoId const>{&id, 1});
+    auto removed = drawingState->take(std::span<GeoId const>{&id, 1});
     if (!removed.has_value()) return false;
 
     for (auto& entry : removed->packets) {
         auto packet = std::move(entry.packet);
-        ll::thread::ServerThreadExecutor::getDefault().execute([packet = std::move(packet)] {
-            if (!packet) return;
-            for (auto& shape : *packet->mShapes) shape.mShapeType = std::nullopt;
-            packet->sendToClients();
-        });
+        if (!packet) continue;
+        for (auto& shape : *packet->mShapes) shape.mShapeType = std::nullopt;
+        sendPacket(
+            id,
+            std::move(packet),
+            entry.position,
+            entry.dimension,
+            PacketSendMode::Broadcast
+        );
     }
     return true;
 }
@@ -513,22 +510,22 @@ GeometryGroup::GeoId DebugDrawingHandler::merge(std::span<GeoId> ids) {
     if (ids.empty()) return GeoId::invalid();
 
     std::span<GeoId const> constIds{ids.data(), ids.size()};
-    auto                   merged = impl->take(constIds);
+    auto                   merged = drawingState->take(constIds);
     if (!merged.has_value()) return GeoId::invalid();
 
     auto newId = getNextGeoId();
-    impl->addGeoEntry(newId, std::move(*merged));
+    drawingState->addGeoEntry(newId, std::move(*merged));
     return newId;
 }
 
 bool DebugDrawingHandler::shift(GeoId id, Vec3 const& offset) {
     if (id.value == 0) return false;
 
-    std::vector<Impl::SendTarget> targets;
-    if (!impl->shift(id, offset, targets)) return false;
+    std::vector<State::SendTarget> targets;
+    if (!drawingState->shift(id, offset, targets)) return false;
 
     for (auto const& target : targets) {
-        sendToPosition(target.packet, target.position, target.dimension);
+        sendPacket(id, target.packet, target.position, target.dimension);
     }
     return true;
 }
