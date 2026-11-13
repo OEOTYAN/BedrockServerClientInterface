@@ -1,0 +1,41 @@
+format = 4
+id = "github.com/OEOTYAN/BedrockServerClientInterface"
+version = "26.60.0"
+
+[info]
+name = "BedrockServerClientInterface"
+description = "wow"
+tags = [
+    "platform:levilamina",
+    "type:mod"
+]
+
+# The default variant has an entry for each side: the server build for servers and the client
+# build for clients, so the mod is installed as "<id>" on either side.
+
+[[variants.""]]
+side = "server"
+platform = "win-x64"
+
+[variants."".deps]
+"github.com/LiteLDev/LeviLamina" = "26.60.*"
+
+[[variants."".assets]]
+type = "zip"
+urls = ["https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-server-windows-x64.zip"]
+place = [{ src = "BedrockServerClientInterface/", dest = "mods/BedrockServerClientInterface/" }]
+
+[[variants.""]]
+side = "client"
+platform = "win-x64"
+
+[variants."".deps]
+# The bare id, not "#client": a lip.toml dependency is never rewritten, and lip.toml releases of
+# LeviLamina have no "client" variant. The range starts above 26.60.6, the last tooth.json release,
+# because the "" variant of a tooth.json release is the server build.
+"github.com/LiteLDev/LeviLamina" = ">26.60.6 <26.61.0"
+
+[[variants."".assets]]
+type = "zip"
+urls = ["https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-client-windows-x64.zip"]
+place = [{ src = "BedrockServerClientInterface/", dest = "mods/BedrockServerClientInterface/" }]

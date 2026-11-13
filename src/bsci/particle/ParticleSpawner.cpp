@@ -48,7 +48,7 @@ namespace bsci {
 static void addTime(MolangVariableMap& var, double extraTime, size_t tablePerTick) {
     var.setMolangVariable(
         "variable.bsci_particle_lifetime",
-        (float)(extraTime + ((64.0 / 20.0) / (double)tablePerTick))
+        MolangScriptArg((float)(extraTime + ((64.0 / 20.0) / (double)tablePerTick)))
     );
 }
 static void addSize(MolangVariableMap& var, Vec2 const& size) {
@@ -133,9 +133,7 @@ ParticleSpawner::~ParticleSpawner() {
     }
 }
 
-GroupType ParticleSpawner::type() const noexcept {
-    return GroupType::Particle;
-}
+GroupType ParticleSpawner::type() const noexcept { return GroupType::Particle; }
 
 GeometryGroup::GeoId ParticleSpawner::particle(
     DimensionType      dim,
