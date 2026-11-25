@@ -22,7 +22,7 @@ platform = "win-x64"
 
 [[variants."".assets]]
 type = "zip"
-urls = ["https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-server-windows-x64.zip"]
+urls = ["https://{{id}}/releases/download/v{{version}}/BedrockServerClientInterface-server-windows-x64.zip"]
 place = [{ src = "BedrockServerClientInterface/", dest = "mods/BedrockServerClientInterface/" }]
 
 [[variants.""]]
@@ -37,5 +37,5 @@ platform = "win-x64"
 
 [[variants."".assets]]
 type = "zip"
-urls = ["https://{{tooth}}/releases/download/v{{version}}/BedrockServerClientInterface-client-windows-x64.zip"]
+urls = ["https://{{id}}/releases/download/v{{version}}/BedrockServerClientInterface-client-windows-x64.zip"]
 place = [{ src = "BedrockServerClientInterface/", dest = "mods/BedrockServerClientInterface/" }]
